@@ -1,0 +1,163 @@
+import re
+from bs4 import BeautifulSoup, NavigableString
+import json
+from minify_html import minify
+
+#TODO postprocess: there must not be any text tag outside of a paragaph or heading.
+# -> implement wrapping!
+#TODO implement text leaf merging!
+
+# Removes superflous HTML and gives us a dict of attachments
+def clean_html(soup):
+	attachments = {}
+	# Extracts the attachment list for further processing
+	attached = soup.find(id="attached")
+	if attached:
+		attached = attached.parent.parent.extract()
+		attached = attached.find(class_="greybox")
+		attached = attached.find_all("a")
+
+		for attachment in attached:
+			key = attachment["href"].split("/")[-1]
+			attachments[key] = ""
+
+	breadcrumbs = soup.find(id="main-header")
+	breadcrumbs.extract()
+
+	# Format Confluence export metadata nicely and remove Atlassian link
+	footer = soup.find(id="footer")
+	footer.find(id="footer-logo").decompose()
+	footer.section.p.unwrap()
+	footer.section.unwrap()
+	footer.smooth()
+	footer = footer.extract()
+	metadata = soup.find(class_="page-metadata")
+	if metadata.span:
+		metadata.span.unwrap()
+	if metadata.span:
+		metadata.span.unwrap()
+	metadata.smooth()
+	metadata = metadata.wrap(soup.new_tag('em'))
+	metadata.append(footer)
+	metadata = metadata.wrap(soup.new_tag('p'))
+
+	# Remove tiny Jira icons
+	jira_keys = soup.find_all(class_="jira-issue-key")
+	for jira_key in jira_keys:
+		if jira_key.img:
+			jira_key.img.decompose()
+
+	# Fixes emojis inserted via :<emoji_name>:
+	# I like this code:
+	# - the unicode hex is given in an HTML attribute
+	# - it's a simple conversion
+	emojis = soup.find_all(class_="emoticon")
+	for emoji in emojis:
+		emoji.replace_with(chr(int(emoji["data-emoji-id"], 16)))
+
+	# Unwrap unnecessary divs and spans
+	dive = soup.find_all('div')
+	for div in dive:
+		if 'class' in div.attrs.keys():
+			#print(div['class'])
+			if 'confluence-information-macro-information' in div['class']:
+				div.name = 'info'
+				continue
+			elif 'confluence-information-macro-tip' in div['class']:
+				div.name = 'tip'
+				continue
+			elif 'confluence-information-macro-note' in div['class']:
+				div.name = 'note'
+				continue
+			elif 'confluence-information-macro-warning' in div['class']:
+				div.name = 'warning'
+				continue
+		div.unwrap()
+		div.smooth()
+
+	spans = soup.find_all('span')
+	for span in spans:
+		span.unwrap()
+		span.smooth()
+
+	# We need the attachments later, so let's pass them to the rest
+	return attachments
+
+def create_json(tag):
+	if type(tag) is NavigableString:
+		if tag.string == '':
+			return None
+		# TODO: should not be done in code segments! best move to postprocessing
+		tag_string = tag.string.replace(r'  ', ' ')
+		return {"type": "text", "text": tag_string}
+
+	if tag.name == 'br':
+		return {"type": "br"}
+
+	if tag.name == 'a':
+		return {"type": "text", "marks": [{"type": "link", "attrs": [{"href": tag['href'].strip()}]}], "text": tag.get_text(strip=True)}
+
+	contents = []
+	tag_type = tag.name
+	simple_type_map = {
+		'body': 'doc',
+		'p': 'paragraph',
+		'li': 'list_item',
+		'h1': 'heading',
+		'h2': 'heading',
+		'h3': 'heading',
+		'h4': 'heading',
+		'li': 'list_item',
+		'ul': 'bullet_list',
+	}
+	attrs = {}
+
+	tag_type = simple_type_map[tag.name] if tag.name in simple_type_map.keys() else tag.name
+
+	if tag.name == 'ul' and 'data-inline-tasks-content-id' in tag.attrs:
+		tag_type = 'checkbox_list'
+
+	if tag.name in ['h1', 'h2', 'h3', 'h4']:
+		attrs['level'] = int(tag.name[1])
+
+	if tag.name in ['th', 'td']:
+		attrs['colspan'] = int(tag['colspan']) if 'colspan' in tag.attrs else 1
+		attrs['rowspan'] = int(tag['rowspan']) if 'rowspan' in tag.attrs else 1
+
+		# Known issue: This will still set alignment to left even if it's rendered differently by a parent stylesheet
+		if 'style' in tag.attrs:
+			align = re.match(r'text-align: ([a-zA-Z]+);', tag['style'])
+			if align.group(1):
+				align = align.group(1)
+			else:
+				align = 'left'
+		else:
+			align = 'left' # Defaults to left in Outline
+		attrs['alignment'] = align #TODO
+
+	for child in tag.children:
+		contents.append(create_json(child))
+
+	parsed = {"type": tag_type, "content": contents}
+
+	if tag.name == 'li' and 'data-inline-task-id' in tag.attrs:
+		checked = ("class" in tag.attrs and "checked" in tag['class'])
+		parsed = {"type": "checkbox_item", "checked": checked, "content": [{"type": "paragraph", "content": contents}]}
+
+	if len(attrs.keys()) > 0:
+		parsed.update({"attrs": attrs})
+	return parsed
+
+def merge_textleaves(json):
+	pass
+
+def html_to_json(html_content):
+	html_content = minify(html_content)
+	soup = BeautifulSoup(html_content, 'lxml')
+	attachments = clean_html(soup)
+	return create_json(soup.find('body')), attachments
+
+if __name__ == '__main__':
+	filec = open("test/test4.html", "r").read()
+	c = html_to_json(filec)
+	open("test/test4.json", "w").write(json.dumps(c))
