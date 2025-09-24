@@ -8,37 +8,15 @@ import time
 import json
 import magic
 from whale import praise_the_whale
+from dotenv import load_dotenv
 
-#------------------
-# Settings section
-#------------------
-# Whether to use the space's home as description for the collection
-HOME_IS_DESCRIPTION = False
-
-# Where the Outline API is
-OUTLINE_API = "https://outline.aet.cit.tum.de/api"
-
-# What directory to store the extracted zip files in
-CONFLUENCE_TMP = "/tmp/confluence_export"
-
-#What directory to store the temporary space exports in
-OUTLINE_TMP = "/tmp/outline_export"
-
-CONFLUENCE_SRC = 'https://confluence.aet.cit.tum.de'
-
-# Grab API token from token.ol in same directory
-try:
-	API_TOKEN = open("token.ol", "r").read()
-	if API_TOKEN[-1] == '\n':
-		API_TOKEN = API_TOKEN[:-1]
-except:
-	API_TOKEN = ""
+load_dotenv()
+HOME_IS_DESCRIPTION = (os.getenv('HOME_IS_DESCRIPTION', 'False') == 'True')
 # To make sure Outline can read this, we put auth into a variable first
-auth = f"Bearer {API_TOKEN}"
+auth = f"Bearer {os.getenv('API_TOKEN')}"
 
 # Load the already known user list. Currently, this is maintained manually.
 users = json.loads(open("users.json", "r").read())
-
 
 #----------------
 # Helper section
@@ -47,7 +25,7 @@ users = json.loads(open("users.json", "r").read())
 #TODO replace with unzip
 def open_zip(zip_name):
 	with zipfile.ZipFile(zip_name, "r") as zip_ref:
-		zip_ref.extractall(CONFLUENCE_TMP)
+		zip_ref.extractall(os.getenv('CONFLUENCE_TMP'))
 
 def not_br(tag):
 	return tag and tag.name != "br" and tag.class_ != "confluenceTd" and tag.name != "tr" and tag.name != "td" and tag.name != "th" and tag.name != 'span'
@@ -56,7 +34,7 @@ def not_br(tag):
 def call_json_endpoint(endpoint, json_data):
 	answer_raw = None
 	while not answer_raw:
-		answer_raw = requests.post(f"{OUTLINE_API}/{endpoint}",
+		answer_raw = requests.post(f"{os.getenv(OUTLINE_API)}/{endpoint}",
 		headers={
 			"Content-Type": "application/json",
 			"Authorization": auth
@@ -96,7 +74,7 @@ def attach(filepath, document_id = None, preset = None):
 	answer = call_json_endpoint("attachments.create", upload_meta)
 	file_id = answer["attachment"]["id"]
 	attachment_meta = answer["form"]
-	answer_raw = requests.post(f"{OUTLINE_API}/files.create",
+	answer_raw = requests.post(f"{os.getenv(OUTLINE_API)}/files.create",
 		headers={"Authorization": auth},
 		data=attachment_meta,
 		files={"file": (filename, open(filepath, "rb"), mime)})
@@ -122,7 +100,7 @@ class ConfluenceDocument:
 		self.collection = collection
 		self.title = title
 		self.file = filename # we might need this to fix up links in the collections later
-		self.content = open(f"{CONFLUENCE_TMP}/{self.collection.shortname}/{self.file}", "r").read()
+		self.content = open(f"{os.getenv('CONFLUENCE_TMP')}/{self.collection.shortname}/{self.file}", "r").read()
 		self.parent = parent_id
 		self.id = None
 		# To know where the attachments lie.
@@ -136,7 +114,7 @@ class ConfluenceDocument:
 		self.preprocess_html()
 		self.upload_file()
 		for attached_file in self.attachments.keys():
-			self.attachments[attached_file] = attach(f"{CONFLUENCE_TMP}/{self.collection.shortname}/attachments/{self.confluence_slug}/{attached_file}", self.id)
+			self.attachments[attached_file] = attach(f"{os.getenv('CONFLUENCE_TMP')}/{self.collection.shortname}/attachments/{self.confluence_slug}/{attached_file}", self.id)
 			time.sleep(1)
 			#break
 		print(self.content)
@@ -393,7 +371,7 @@ class ConfluenceDocument:
 	# Imports the document into Outline
 	# Returns the resulting markdown to be used in postprocessing
 	def upload_file(self):
-		answer_raw = requests.post(f"{OUTLINE_API}/documents.import",
+		answer_raw = requests.post(f"{os.getenv('OUTLINE_API')}/documents.import",
 			headers={
 				# I'm not allowed to set this header myself when using the library
 				# because Outline will throw a hissyfit
@@ -433,7 +411,7 @@ class ConfluenceSpace:
 	# - if in top level list: feed into collection with space name
 	# - if in sublist: give document parent id, while iterating
 	def import_space(self, home_is_description = False):
-		space_index = BeautifulSoup(open(f"{CONFLUENCE_TMP}/{self.shortname}/index.html", "r"), 'lxml')
+		space_index = BeautifulSoup(open(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}/index.html", "r"), 'lxml')
 		space_details = space_index.find(id="main-content").find("table").find_all("td")
 		self.name = space_details[1].string
 		self.name = self.name + f" [{self.shortname}]"
@@ -498,11 +476,11 @@ class ConfluenceSpace:
 			time.sleep(2)
 
 		# The documentation tried to sell me this as a POST request...
-		os.system(f'wget --header="Content-Type: application/json" --header="Authorization: {auth}" -O {OUTLINE_TMP}/{self.shortname}-raw.zip {OUTLINE_API}/fileOperations.redirect?id={file_id}')
+		os.system(f'wget --header="Content-Type: application/json" --header="Authorization: {auth}" -O {os.getenv("CONFLUENCE_TMP")}/{self.shortname}-raw.zip {OUTLINE_API}/fileOperations.redirect?id={file_id}')
 
-		with zipfile.ZipFile(f"{OUTLINE_TMP}/{self.shortname}-raw.zip", "r") as zip_ref:
-			zip_ref.extractall(f"{OUTLINE_TMP}/{self.shortname}")
-		self.json = open(f"{OUTLINE_TMP}/{self.shortname}/{self.name}.json", "r").read()
+		with zipfile.ZipFile(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}-raw.zip", "r") as zip_ref:
+			zip_ref.extractall(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}")
+		self.json = open(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}/{self.name}.json", "r").read()
 
 		# We have the file, so we delete it from the server as to not pollute it
 		answer = call_json_endpoint("fileOperations.delete", {"id": file_id})
@@ -514,10 +492,10 @@ class ConfluenceSpace:
 		self.praise_the_whale()
 
 		# ...zip the file again...
-		os.system(f"cd {OUTLINE_TMP}/{self.shortname} && zip -r {OUTLINE_TMP}/{self.shortname}.zip .")
+		os.system(f"cd {os.getenv('CONFLUENCE_TMP')}/{self.shortname} && zip -r {os.getenv('CONFLUENCE_TMP')}/{self.shortname}.zip .")
 
 		# ...and reimport the collection
-		import_file_id = attach(f"{OUTLINE_TMP}/{self.shortname}.zip", None, "workspaceImport")
+		import_file_id = attach(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}.zip", None, "workspaceImport")
 		answer = call_json_endpoint("collections.import", {"attachmentId": import_file_id, "format": "json", "permission": None, "sharing": False})
 
 	#TODO add praise
@@ -534,7 +512,7 @@ class ConfluenceSpace:
 		# - replace with last slice element
 		# - insert slice elements at position in reverse order
 		self.json = praise_the_whale(self.json)
-		open(f"{OUTLINE_TMP}/{self.shortname}/{self.name}.json", 'w').write(self.json)
+		open(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}/{self.name}.json", 'w').write(self.json)
 
 # note: collections.update - id,permission (read/read_write/null/admin)
 #			 collections.add_user for specific user, same scheme + userId -> we should add at least one admin to each collection!
@@ -547,12 +525,12 @@ class ConfluenceSpace:
 # Step 3: Invoke the necessary method(s) for import
 # Step 4: Profit
 # Clear tmp directories
-os.system(f"rm -r {CONFLUENCE_TMP}")
-os.system(f"rm -r {OUTLINE_TMP}")
-os.system(f"mkdir {OUTLINE_TMP}")
+os.system(f"rm -r {os.getenv('CONFLUENCE_TMP')}")
+os.system(f"rm -r {os.getenv('CONFLUENCE_TMP')}")
+os.system(f"mkdir {os.getenv('CONFLUENCE_TMP')}")
 space_zips = sys.argv[1:]
 for zip_file in space_zips:
 	open_zip(zip_file)
-spaces = os.listdir(CONFLUENCE_TMP)
+spaces = os.listdir(os.getenv('CONFLUENCE_TMP'))
 for space in spaces:
 	ConfluenceSpace(space).import_space(HOME_IS_DESCRIPTION)
