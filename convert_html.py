@@ -14,15 +14,17 @@ from minify_html import minify
 def clean_html(soup):
 	attachments = {}
 	# Extracts the attachment list for further processing
-	attached = soup.find(id="attached")
+	attached = soup.find(id="attachments")
 	if attached:
 		attached = attached.parent.parent.extract()
+		print(attached)
 		attached = attached.find(class_="greybox")
 		attached = attached.find_all("a")
 
 		for attachment in attached:
 			key = attachment["href"].split("/")[-1]
 			attachments[key] = ""
+			attachment.decompose()
 
 	breadcrumbs = soup.find(id="main-header")
 	breadcrumbs.extract()
@@ -43,6 +45,26 @@ def clean_html(soup):
 	metadata = metadata.wrap(soup.new_tag('em'))
 	metadata.append(footer)
 	metadata = metadata.wrap(soup.new_tag('p'))
+
+
+	# Tags that fuck up any given import
+	# Includes the following:
+	# - Remove the profile-full tables to resolve display issues
+	#   These are empty anyways, so it's fine
+	# - profile picture for vcards - not really necessary to display
+	#   They're more of eye candy than important content
+	# - Remove certain divs
+	bad_tags = {
+		"span": ["aui-avatar"],
+		"div": ["update-item-icon", "update-item-profile", "more-link-container"],
+		"table": ["profile-full"],
+	}
+
+	for name, classes in bad_tags.items():
+		for clazz in classes:
+			bad_tags = soup.find_all(name=name, class_=clazz)
+			for bad_tag in bad_tags:
+				bad_tag.decompose()
 
 	# Remove tiny Jira icons
 	jira_keys = soup.find_all(class_="jira-issue-key")
@@ -87,17 +109,23 @@ def clean_html(soup):
 	return attachments
 
 def create_json(tag):
+	# Just in case
+	if not tag:
+		return None
+
 	if type(tag) is NavigableString:
 		if tag.string == '':
 			return None
-		# TODO: should not be done in code segments! best move to postprocessing
-		tag_string = tag.string.replace(r'  ', ' ')
-		return {"type": "text", "text": tag_string}
+		return {"type": "text", "text": tag.string}
 
 	if tag.name == 'br':
 		return {"type": "br"}
 
-	# TODO not final - intermediate, inaccurate solution for the sake of quick results
+	if tag.name == 'img':
+		return {"type": "image", "attrs": {"src": tag['src'], "alt": tag['alt'] if 'alt' in tag.attrs and tag['alt'] != '' else None}}
+
+	# This only handles text links properly, and doesn't apply inner formatting
+	# That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
 	if tag.name == 'a':
 		return {"type": "text", "marks": [{"type": "link", "attrs": [{"href": tag['href'].strip()}]}], "text": tag.get_text(strip=True)}
 
@@ -113,6 +141,7 @@ def create_json(tag):
 		'h4': 'heading',
 		'li': 'list_item',
 		'ul': 'bullet_list',
+		'button': 'paragraph', # Buttons wouldn't work so we make them a paragraph
 	}
 	attrs = {}
 
@@ -142,7 +171,12 @@ def create_json(tag):
 		attrs['alignment'] = align
 
 	for child in tag.children:
-		contents.append(create_json(child))
+		child_json = create_json(child)
+		if child_json:
+			contents.append(child_json)
+
+	if tag_type == 'paragraph' and len(contents) == 0:
+		return None
 
 	parsed = {"type": tag_type, "content": contents}
 
@@ -157,6 +191,9 @@ def create_json(tag):
 def merge_textleaves(json):
 	pass
 
+def unwrap_marked_text(json):
+	pass
+
 def html_to_json(html_content):
 	html_content = minify(html_content)
 	soup = BeautifulSoup(html_content, 'lxml')
@@ -165,5 +202,5 @@ def html_to_json(html_content):
 
 if __name__ == '__main__':
 	filec = open("test/test4.html", "r").read()
-	c = html_to_json(filec)
+	c, _ = html_to_json(filec)
 	open("test/test4.json", "w").write(json.dumps(c))
