@@ -10,6 +10,8 @@ import magic
 from whale import praise_the_whale
 from dotenv import load_dotenv
 
+__version__ = "1.0.0"
+
 load_dotenv()
 HOME_IS_DESCRIPTION = (os.getenv('HOME_IS_DESCRIPTION', 'False') == 'True')
 # To make sure Outline can read this, we put auth into a variable first
@@ -40,7 +42,7 @@ def call_json_endpoint(endpoint, json_data):
 			"Authorization": auth
 		}, json=json_data)
 
-		
+
 		#if answer_raw.status_code == 429:
 			#time.sleep(float(answer_raw.headers['Retry-After'])/1000)
 		#	continue
@@ -353,8 +355,6 @@ class ConfluenceDocument:
 			self.content = self.content.replace("⟨file(" + attach_name + ")⟩", "⟨file(" + attach_id + ")⟩")
 
 		call_json_endpoint("documents.update", {"id": self.id, "text": self.content})
-		return
-		
 
 	# Sets the content of the document as the description of the collection
 	# Deletes the document afterwards
@@ -400,7 +400,30 @@ class ConfluenceDocument:
 class ConfluenceSpace:
 	def __init__(self, shortname):
 		self.shortname = shortname
-		self.id = "a55bc56f-370a-4c63-8413-08071947835f" # Sascha-Test collection. For testing purposes and as a general fallback. Can disable in prod.
+		# Default description
+		#self.description = {
+		#	"type": "doc",
+		#	"content": [
+		#		{
+		#			"type": "paragraph",
+		#			"content": [
+		#				{
+		#					"text": f"Imported with Cuckoo Importer v{__version__}",
+		#					"type": "text"
+		#				}
+		#			]
+		#		},
+		#		{
+		#			"type": "paragraph",
+		#			"content": [
+		#				{
+		#					"text": "© Sascha Bacher",
+		#					"type": "text"
+		#				}
+		#			]
+	#			}
+	#		]
+	#	}
 
 	# Creates the space if it doesn't exist and starts processing the pages listed in index.html
 	# Flow:
@@ -428,11 +451,12 @@ class ConfluenceSpace:
 	def create_collection(self):
 		answer = call_json_endpoint("collections.create", {
 			"name": self.name,
-			"description": "Imported with Cuckoo Importer v0.0.1\n\n© Sascha Bacher",
+			"description": f"Imported with Cuckoo Importer v{__version__}\n\n© Sascha Bacher",
 			"permission": None,
 			"sharing": False
 		})
 		self.id = answer["id"]
+		self.description = answer["description"]
 
 	# Iterates recursively over the document tree, creating pages as it progresses
 	def process_pages(self, pages, parent = None):
@@ -464,12 +488,12 @@ class ConfluenceSpace:
 		#NOTE: modelId in mentions is mentioned user, this is reflected in the generated link => only relevant attribute!!!
 		#NOTE: id is id of mention itself, should be unique on page but can be replicated across multiple pages -> this can be null and still work with the import, as a new one is generated on import!
 		#NOTE: if this is set through md postprocessing (as opposed to json prosemirror data), outline will automatically correct this - however, this gets immediately fucked over by tables
-		#NOTE: for export-import: 
+		#NOTE: for export-import:
 		# - create attachment with preset workspaceImport (ex. {"preset":"workspaceImport","contentType":"application/zip","size":2031516,"name":"Sascha-Test-export.json.zip"})
 
 		answer = call_json_endpoint("collections.export", {"format": "json",
 			"id": self.id, "includeAttachments": True})
-		file_op  = answer["fileOperation"]
+		file_op = answer["fileOperation"]
 		file_id = file_op["id"]
 		while not file_op["state"] == "complete":
 			file_op = call_json_endpoint("fileOperations.info", {"id": file_id})
@@ -518,7 +542,7 @@ class ConfluenceSpace:
 #			 collections.add_user for specific user, same scheme + userId -> we should add at least one admin to each collection!
 #		collections.add_group for groups (like admins), same scheme + groupId
 #			 ACL list for spaces (with shortname)? possibly via groups
-	
+
 # Step 1: Extract all requested space exports to temporary location
 #		 Now, every space resides in a folder. The folder name matches the space's shortname
 # Step 2: For each space, create a ConfluenceSpace object

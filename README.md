@@ -11,6 +11,12 @@ This README is just for the entertainment of whoever wants to look through the c
 
 Tested with Confluence 9.2.4 and Outline 0.87.3
 
+No AI was used in the creation of this program.
+
+## Requirements
+- Linux
+- Installed zip command line util
+
 ## How to use Cuckoo
 1. Download Cuckoo from the Releases
 2. Create a file named `.env`. This is best done by copying `sample.env` and adjusting the values to your needs
