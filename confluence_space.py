@@ -70,11 +70,6 @@ class ConfluenceSpace:
 	# Exports and deletes the collection from Outline, applies magic and reimports the collection into Outline
 	# Done at collection level since one collection is put into one json file anyway
 	def export_import(self):
-		#NOTE: data-actorId in mentions is the uploading user -> is optional! not always in prosemirror data
-		#NOTE: modelId in mentions is mentioned user, this is reflected in the generated link => only relevant attribute!!!
-		#NOTE: id is id of mention itself, should be unique on page but can be replicated across multiple pages -> this can be null and still work with the import, as a new one is generated on import!
-		# - create attachment with preset workspaceImport (ex. {"preset":"workspaceImport","contentType":"application/zip","size":2031516,"name":"Sascha-Test-export.json.zip"})
-
 		auth = f"Bearer {os.getenv('API_TOKEN')}"
 		answer = call.json_endpoint("collections.export", {"format": "json",
 			"id": self.id, "includeAttachments": True})
