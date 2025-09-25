@@ -57,7 +57,7 @@ def attach(filepath, document_id = None, preset = None):
 		files={"file": (filename, open(filepath, "rb"), mime)})
 
 	answer = json.loads(answer_raw.text)
-	print(answer)
+	#print(answer)
 	if answer["ok"] == False:
 		if answer_raw.status_code == 429:
 			print(answer_raw.headers['Retry-After'])

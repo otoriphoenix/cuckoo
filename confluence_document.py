@@ -1,4 +1,5 @@
 from convert_html import html_to_json
+from json_helper import replace_from_map
 import request_wrapper as call
 import os
 import time
@@ -58,7 +59,7 @@ class ConfluenceDocument:
 	def fake_upload(self):
 		answer = call.json_endpoint('documents.create', {
 			"title": self.title,
-			"text": "",
+			"text": "Placeholder created by Cuckoo",
 			"collectionId": self.collection.id,
 			"parentDocumentId": self.parent,
 			"publish": True
@@ -67,4 +68,11 @@ class ConfluenceDocument:
 
 	# Replaces some Confluence IDs/locations with the Outline equivalents
 	def postprocess(self):
-		pass
+		attachment_path = 'attachments/' + self.confluence_slug
+		attachment_map = {}
+		for key, value in self.attachments.items():
+			attachment_map[f'{attachment_path}/{key}'] = f'/api/attachments.redirect?id={value}'
+		# Map image links
+		replace_from_map(self.content, '', 'image', '/attrs/src', attachment_map)
+		# Map other attachments
+		replace_from_map(self.content, '', 'attachment', '/attrs/href', attachment_map)

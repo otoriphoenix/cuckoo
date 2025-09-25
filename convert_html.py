@@ -165,6 +165,7 @@ def create_json(tag):
 		'h4': 'heading',
 		'li': 'list_item',
 		'ul': 'bullet_list',
+		'ol': 'ordered_list',
 		'button': 'paragraph', # Buttons wouldn't work so we make them a paragraph
 		'b': 'strong',
 		'i': 'em',
@@ -174,6 +175,7 @@ def create_json(tag):
 		'c_note': 'container_notice',
 		'pre': 'code_fence',
 		'img': 'image',
+		'code': 'code_inline'
 	}
 
 	tag_type = simple_type_map[tag.name] if tag.name in simple_type_map.keys() else tag.name
@@ -273,7 +275,7 @@ def unwrap_marked_text(json, path):
 	if not 'content' in node:
 		return
 
-	if node['type'] in ['strong', 'em']:
+	if node['type'] in ['strong', 'em', 'code_inline']:
 		mark_type = node['type']
 		children = node['content']
 		for child in children:
