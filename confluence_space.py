@@ -28,7 +28,7 @@ class ConfluenceSpace:
 		self.name = self.name + f" [{self.shortname}]"
 		self.create_collection()
 		self.documents = {}
-		self.description = None # None for the standard Cuckoo Importer message
+		self.description = None # None yields the standard Cuckoo Importer message
 
 		page_tree = space_index.find("ul")
 		pages = page_tree.find_all("li", recursive=False)
@@ -70,19 +70,11 @@ class ConfluenceSpace:
 	# Exports and deletes the collection from Outline, applies magic and reimports the collection into Outline
 	# Done at collection level since one collection is put into one json file anyway
 	def export_import(self):
-		#NOTE: json structure of collection export is ["documents"][<document_id>]["data"] - this gives prosemirror contents
-		#NOTE: contents are ordered hierarchically! might be difficult to replicate, need to figure out how to do that
 		#NOTE: data-actorId in mentions is the uploading user -> is optional! not always in prosemirror data
 		#NOTE: modelId in mentions is mentioned user, this is reflected in the generated link => only relevant attribute!!!
 		#NOTE: id is id of mention itself, should be unique on page but can be replicated across multiple pages -> this can be null and still work with the import, as a new one is generated on import!
-		#NOTE: if this is set through md postprocessing (as opposed to json prosemirror data), outline will automatically correct this - however, this gets immediately fucked over by tables
-		#NOTE: for export-import:
 		# - create attachment with preset workspaceImport (ex. {"preset":"workspaceImport","contentType":"application/zip","size":2031516,"name":"Sascha-Test-export.json.zip"})
 
-		# note: collections.update - id,permission (read/read_write/null/admin)
-		#			 collections.add_user for specific user, same scheme + userId -> we should add at least one admin to each collection!
-		#		collections.add_group for groups (like admins), same scheme + groupId
-		#			 ACL list for spaces (with shortname)? possibly via groups
 		auth = f"Bearer {os.getenv('API_TOKEN')}"
 		answer = call.json_endpoint("collections.export", {"format": "json",
 			"id": self.id, "includeAttachments": True})
@@ -125,7 +117,6 @@ class ConfluenceSpace:
 		if self.description:
 			patches.append({"op": 'replace', 'path': "/collection/data", 'value': self.description})
 		jsonpatch.apply_patch(self.json, patches, in_place=True)
-		#self.json = praise_the_whale(self.json)
 		self.json = json.dumps(self.json)
 		with open(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}/{self.name}.json", 'w') as outfile:
 			outfile.write(self.json)

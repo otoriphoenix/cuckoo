@@ -37,9 +37,7 @@ class ConfluenceDocument:
 
 	# For the nasty html best replaced before parsing
 	def preprocess_html(self):
-		self.content = self.content.replace("\n", "")
 		self.content = self.content.replace(r"<p><br></p>", "")
-		self.content = self.content.replace(r"<p></p>", "<br>")
 		self.content = self.content.replace(u'\xa0', ' ')
 		self.content = self.content.replace('&nsbp;', ' ')
 
