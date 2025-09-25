@@ -1,23 +1,27 @@
 import re
 from bs4 import BeautifulSoup, NavigableString
 import json
+from jsonpointer import resolve_pointer
+import jsonpatch
 from minify_html import minify
 
 # The magic needed to translate the HTML output of a standard Confluence instance (Data Center license)
 # into Outline's JSON format.
 
-#TODO postprocess: there must not be any text tag outside of a paragaph or heading.
-# -> implement wrapping!
-#TODO implement text leaf merging!
+def checklist_predicate(tag):
+	return tag and tag.name == 'ul' and 'data-inline-tasks-content-id' in tag.attrs
 
-# Removes superflous HTML and gives us a dict of attachments
+def task_item_predicate(tag):
+	return tag and tag.name == 'li' and 'data-inline-task-id' in tag.attrs
+
+# Removes superflous HTML, translates some tag names and gives us a dict of attachments
 def clean_html(soup):
 	attachments = {}
 	# Extracts the attachment list for further processing
 	attached = soup.find(id="attachments")
 	if attached:
 		attached = attached.parent.parent.extract()
-		print(attached)
+		#print(attached)
 		attached = attached.find(class_="greybox")
 		attached = attached.find_all("a")
 
@@ -26,8 +30,9 @@ def clean_html(soup):
 			attachments[key] = ""
 			attachment.decompose()
 
+	# Remove breadcrumbs
 	breadcrumbs = soup.find(id="main-header")
-	breadcrumbs.extract()
+	breadcrumbs.decompose()
 
 	# Format Confluence export metadata nicely and remove Atlassian link
 	footer = soup.find(id="footer")
@@ -66,6 +71,11 @@ def clean_html(soup):
 			for bad_tag in bad_tags:
 				bad_tag.decompose()
 
+	# These don't seem to have an Outline equivalent, so we remove them
+	colgroups = soup.find_all('colgroup')
+	for colgroup in colgroups:
+		colgroup.decompose()
+
 	# Remove tiny Jira icons
 	jira_keys = soup.find_all(class_="jira-issue-key")
 	for jira_key in jira_keys:
@@ -80,30 +90,37 @@ def clean_html(soup):
 	for emoji in emojis:
 		emoji.replace_with(chr(int(emoji["data-emoji-id"], 16)))
 
-	# Unwrap unnecessary divs and spans
-	dive = soup.find_all('div')
-	for div in dive:
-		if 'class' in div.attrs.keys():
-			#print(div['class'])
-			if 'confluence-information-macro-information' in div['class']:
-				div.name = 'info'
-				continue
-			elif 'confluence-information-macro-tip' in div['class']:
-				div.name = 'tip'
-				continue
-			elif 'confluence-information-macro-note' in div['class']:
-				div.name = 'note'
-				continue
-			elif 'confluence-information-macro-warning' in div['class']:
-				div.name = 'warning'
-				continue
-		div.unwrap()
-		div.smooth()
+	# Translate certain tag patterns to tag names
+	tag_translation = {
+		"div": {
+			"confluence-information-macro-information": "c_info",
+			"confluence-information-macro-tip": "c_tip",
+			"confluence-information-macro-note": "c_success",
+			"confluence-information-macro-warning": "c_warning",
+		}
+	}
+	for tag_name, translation in tag_translation.items():
+		for clazz, translated_name in translation.items():
+			raw_tags = soup.find_all(name=tag_name, class_=clazz)
+			for raw_tag in raw_tags:
+				raw_tag.name = translated_name
 
-	spans = soup.find_all('span')
-	for span in spans:
-		span.unwrap()
-		span.smooth()
+	# Translate checklists + checklist items
+	tasks = soup.find_all(task_item_predicate)
+	for task in tasks:
+		task.name = 'checkbox_item'
+
+	tasklists = soup.find_all(checklist_predicate)
+	for l in tasklists:
+		l.name = 'checkbox_list'
+
+	# Unwrap wrapper tags. Done at the end to avoid issues with other tags.
+	wrapper_tags = ['div', 'span', 'time', 'tbody']
+	for wrapper_tag in wrapper_tags:
+		wrappers = soup.find_all(wrapper_tag)
+		for wrapper in wrappers:
+			wrapper.unwrap()
+			wrapper.smooth()
 
 	# We need the attachments later, so let's pass them to the rest
 	return attachments
@@ -118,19 +135,12 @@ def create_json(tag):
 			return None
 		return {"type": "text", "text": tag.string}
 
-	if tag.name == 'br':
-		return {"type": "br"}
-
-	if tag.name == 'img':
-		return {"type": "image", "attrs": {"src": tag['src'], "alt": tag['alt'] if 'alt' in tag.attrs and tag['alt'] != '' else None}}
-
 	# This only handles text links properly, and doesn't apply inner formatting
 	# That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
 	if tag.name == 'a':
 		return {"type": "text", "marks": [{"type": "link", "attrs": [{"href": tag['href'].strip()}]}], "text": tag.get_text(strip=True)}
 
 	contents = []
-	tag_type = tag.name
 	simple_type_map = {
 		'body': 'doc',
 		'p': 'paragraph',
@@ -142,18 +152,31 @@ def create_json(tag):
 		'li': 'list_item',
 		'ul': 'bullet_list',
 		'button': 'paragraph', # Buttons wouldn't work so we make them a paragraph
+		'b': 'strong',
+		'i': 'em',
+		'c_info': 'container_notice',
+		'c_tip': 'container_notice',
+		'c_warning': 'container_notice',
+		'c_note': 'container_notice',
+		'pre': 'code_fence',
+		'img': 'image',
 	}
-	attrs = {}
 
 	tag_type = simple_type_map[tag.name] if tag.name in simple_type_map.keys() else tag.name
+	parsed = {"type": tag_type}
+	attrs = {}
 
-	if tag.name == 'ul' and 'data-inline-tasks-content-id' in tag.attrs:
-		tag_type = 'checkbox_list'
+	if tag_type == 'image':
+		attrs["src"] = tag['src']
+		attrs["alt"] = tag['alt'] if 'alt' in tag.attrs and tag['alt'] != '' else None
 
-	if tag.name in ['h1', 'h2', 'h3', 'h4']:
+	if tag_type == 'heading':
 		attrs['level'] = int(tag.name[1])
 
-	if tag.name in ['th', 'td']:
+	if tag_type  == 'container_notice':
+		attrs['style'] = tag.name[2:]
+
+	if tag_type in ['th', 'td']:
 		attrs['colspan'] = int(tag['colspan']) if 'colspan' in tag.attrs else 1
 		attrs['rowspan'] = int(tag['rowspan']) if 'rowspan' in tag.attrs else 1
 
@@ -178,27 +201,141 @@ def create_json(tag):
 	if tag_type == 'paragraph' and len(contents) == 0:
 		return None
 
-	parsed = {"type": tag_type, "content": contents}
-
-	if tag.name == 'li' and 'data-inline-task-id' in tag.attrs:
+	if tag_type == 'checkbox_item':
 		checked = ("class" in tag.attrs and "checked" in tag['class'])
-		parsed = {"type": "checkbox_item", "checked": checked, "content": [{"type": "paragraph", "content": contents}]}
+		parsed.update({"checked": checked})
 
 	if len(attrs.keys()) > 0:
 		parsed.update({"attrs": attrs})
+	if len(contents) > 0:
+		parsed.update({"content": contents})
 	return parsed
 
-def merge_textleaves(json):
-	pass
+# Merges text leaves with equal formatting
+# This is more of eye candy in the JSON than an actual requirement
+# Returns a list of patches to be applied to the JSON. The patches must be applied separately.
+# Otherwise, you get indexing problems
+def merge_textleaves(json, path, bulk_patch):
+	node = resolve_pointer(json, path)
+	if not 'content' in node:
+		return bulk_patch
+	
+	for i, _ in enumerate(node['content']):
+		bulk_patch = merge_textleaves(json, path + f'/content/{i}', bulk_patch)
 
-def unwrap_marked_text(json):
-	pass
+	children = []
+	pointer = 0
+	if has_textleaf(node['content']):
+		#print([child['text'] if 'text' in child else child['type'] for child in node['content']])
+		#print(f"processing {path}, {len(node['content'])}")
+		for i, child in enumerate(node['content']):
+			if not child['type']  == 'text':
+				children.append(child)
+				pointer += 2
+			else:
+				# len is guaranteed to be >= to the pointer value if I wrote this correctly
+				if len(children) <= pointer:
+					children.append(child)
+					#print(len(children), pointer)
+				elif equal_marks(child, children[pointer]):
+					#print(children[pointer]['type'], pointer)
+					#print([child['text'] if 'text' in child else child['type'] for child in children])
+					children[pointer]['text'] += child['text']
+				else:
+					children.append(child)
+					pointer += 1
+		#print([child['text'] if 'text' in child else child['type'] for child in children])
+		bulk_patch.append({"op": 'replace', 'path': path + f"/content", 'value': children})
+	return bulk_patch
+
+def equal_marks(textleaf_1, textleaf_2):
+	if not (('marks' in textleaf_1) == ('marks' in textleaf_2)):
+		
+		return False
+	
+	if 'marks' in textleaf_1:
+		return textleaf_1['marks'] == textleaf_2['marks']
+	return True
+
+def unwrap_marked_text(json, path):
+	node = resolve_pointer(json, path)
+	if not 'content' in node:
+		return
+
+	if node['type'] in ['strong', 'em']:
+		mark_type = node['type']
+		children = node['content']
+		for child in children:
+			marks = child['marks'] if 'marks' in child else []
+			marks += [{'type': mark_type}]
+			child.update({"marks": marks})
+		expand_into_json_list(json, path, children)
+		for i, _ in enumerate(node['content']):
+			unwrap_marked_text(json, path)
+		return
+
+	for i, _ in enumerate(node['content']):
+		unwrap_marked_text(json, path + f'/content/{i}')
+
+def has_textleaf(node_content):
+	for child in node_content:
+		if child['type'] == "text":
+			return True
+	return False
+
+# Wraps text leaves in paragraphs
+# Done since the JSON created by Outline only contains text leaves inside a heading or paragraph,
+# and we don't want to cause the import to fail
+# Returns a list of patches to be applied to the JSON. The patches must be applied separately.
+# Otherwise, you get indexing problems
+def wrap_textleaves(json, path, bulk_patch):
+	node = resolve_pointer(json, path)
+	if node['type'] in ['heading', 'paragraph'] or not 'content' in node:
+		return bulk_patch
+	
+	for i, _ in enumerate(node['content']):
+		bulk_patch = wrap_textleaves(json, path + f'/content/{i}', bulk_patch)
+
+	children = []
+	pointer = 0
+	if has_textleaf(node['content']):
+		#print(f"processing {path}, {len(node['content'])}")
+		for i, child in enumerate(node['content']):
+			#print(f"element {i}")
+			if not child['type'] in ['text', 'br']:
+				children.append(child)
+				pointer += 1
+			else:
+				# len is guaranteed to be >= to the pointer value if I wrote this correctly
+				if len(children) == pointer:
+					children.append({'type': 'paragraph', 'content': []})
+					#print(len(children), pointer)
+				children[pointer]['content'].append(child)
+		#print([child['type'] for child in children])
+		bulk_patch.append({"op": 'replace', 'path': path + f"/content", 'value': children})
+	return bulk_patch	
+
+# Replaces an element in a JSON list with n new elements.
+def expand_into_json_list(json, path, new_elements):
+	if len(new_elements) == 0:
+		return
+	
+	new_elements = [{"op": 'add', 'path': path, 'value': element} for element in new_elements]
+
+	new_elements[-1].update({"op": 'replace'})
+	jsonpatch.apply_patch(json, new_elements[::-1], in_place=True)
 
 def html_to_json(html_content):
 	html_content = minify(html_content)
 	soup = BeautifulSoup(html_content, 'lxml')
 	attachments = clean_html(soup)
-	return create_json(soup.find('body')), attachments
+	json = create_json(soup.find('body'))
+	unwrap_marked_text(json, '')
+	bulk_patch = merge_textleaves(json, '', [])
+	jsonpatch.apply_patch(json, bulk_patch, in_place=True)
+	bulk_patch = wrap_textleaves(json, '', [])
+	jsonpatch.apply_patch(json, bulk_patch, in_place=True)
+	return json, attachments
 
 if __name__ == '__main__':
 	filec = open("test/test4.html", "r").read()
