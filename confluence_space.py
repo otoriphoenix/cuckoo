@@ -5,6 +5,8 @@ import os
 import time
 import zipfile
 import jsonpatch
+import json
+import shutil
 
 # Class to help import a Confluence space as an Outline collection
 class ConfluenceSpace:
@@ -55,7 +57,7 @@ class ConfluenceSpace:
 				self.process_home = False
 				self.description = document_content
 			self.documents[document_name] = {"outlineID": document_id, "outlineContent": document_content}
-			return #TODO for debugging purposes, stop after 1 document. Disable in prod.
+			#return #for debugging purposes, stop after 1 document. Disabled in prod.
 
 			# Avoid rate limit
 			time.sleep(15)
@@ -77,10 +79,10 @@ class ConfluenceSpace:
 		#NOTE: for export-import:
 		# - create attachment with preset workspaceImport (ex. {"preset":"workspaceImport","contentType":"application/zip","size":2031516,"name":"Sascha-Test-export.json.zip"})
 
-# note: collections.update - id,permission (read/read_write/null/admin)
-#			 collections.add_user for specific user, same scheme + userId -> we should add at least one admin to each collection!
-#		collections.add_group for groups (like admins), same scheme + groupId
-#			 ACL list for spaces (with shortname)? possibly via groups
+		# note: collections.update - id,permission (read/read_write/null/admin)
+		#			 collections.add_user for specific user, same scheme + userId -> we should add at least one admin to each collection!
+		#		collections.add_group for groups (like admins), same scheme + groupId
+		#			 ACL list for spaces (with shortname)? possibly via groups
 		auth = f"Bearer {os.getenv('API_TOKEN')}"
 		answer = call.json_endpoint("collections.export", {"format": "json",
 			"id": self.id, "includeAttachments": True})
@@ -90,7 +92,6 @@ class ConfluenceSpace:
 			file_op = call.json_endpoint("fileOperations.info", {"id": file_id})
 			time.sleep(2)
 
-		# The documentation tried to sell me this as a POST request...
 		export_file = call.fetch_file(file_id)
 		with open(f'{os.getenv("OUTLINE_TMP")}/{self.shortname}-raw.zip', 'wb') as target_file:
 			target_file.write(export_file)
@@ -98,6 +99,7 @@ class ConfluenceSpace:
 		with zipfile.ZipFile(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}-raw.zip", "r") as zip_ref:
 			zip_ref.extractall(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}")
 		self.json = open(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}/{self.name}.json", "r").read()
+		self.json = json.loads(self.json)
 
 		# We have the file, so we delete it from the server as to not pollute it
 		answer = call.json_endpoint("fileOperations.delete", {"id": file_id})
@@ -109,21 +111,21 @@ class ConfluenceSpace:
 		self.praise_the_whale()
 
 		# ...zip the file again...
-		#TODO shutil
-		os.system(f"cd {os.getenv('OUTLINE_TMP')}/{self.shortname} && zip -r {os.getenv('OUTLINE_TMP')}/{self.shortname}.zip .")
+		path = os.path.join(os.getenv('OUTLINE_TMP') , self.shortname)
+		shutil.make_archive(path, 'zip', path)
 
 		# ...and reimport the collection
 		import_file_id = call.attach(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}.zip", None, "workspaceImport")
 		answer = call.json_endpoint("collections.import", {"attachmentId": import_file_id, "format": "json", "permission": None, "sharing": False})
 
-	#TODO add praise
 	def praise_the_whale(self):
-		#for doc_name, doc_id in self.documents.items():
-		#	self.json = self.json.replace(r'⟨doc('+doc_name+')⟩', r'⟨doc('+doc_id+')⟩')
-		#print(self.json[:20])
-		for doc_name, doc_id in self.documents.items():
-			jsonpatch.apply_patch(self.json, [], in_place=True)
+		patches = []
+		for doc_name, document in self.documents.items():
+			patches.append({"op": 'replace', 'path': f"/documents/{document['outlineID']}/data", 'value': document['outlineContent']})
 		if self.description:
-			jsonpatch.apply_patch(self.json, [], in_place=True)
+			patches.append({"op": 'replace', 'path': "/collection/data", 'value': self.description})
+		jsonpatch.apply_patch(self.json, patches, in_place=True)
 		#self.json = praise_the_whale(self.json)
-		open(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}/{self.name}.json", 'w').write(self.json)
+		self.json = json.dumps(self.json)
+		with open(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}/{self.name}.json", 'w') as outfile:
+			outfile.write(self.json)

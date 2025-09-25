@@ -27,6 +27,9 @@ def bad_tag_predicate(tag):
 	if not tag:
 		return False
 
+	if tag.name == 'input':
+		return True
+
 	bad_tags = {
 		"span": ["aui-avatar"],
 		"div": ["update-item-icon", "update-item-profile", "more-link-container"],
@@ -71,11 +74,12 @@ def clean_html(soup):
 	footer = footer.extract()
 	metadata = soup.find(class_="page-metadata")
 	if metadata.span:
-		metadata.span.unwrap()
+		metadata.span.replace_with(metadata.span.get_text(strip=True))
 	if metadata.span:
-		metadata.span.unwrap()
+		metadata.span.replace_with(metadata.span.get_text(strip=True))
 	metadata.smooth()
 	metadata = metadata.wrap(soup.new_tag('em'))
+	metadata.append(soup.new_tag('br'))
 	metadata.append(footer)
 	metadata = metadata.wrap(soup.new_tag('p'))
 
@@ -148,7 +152,7 @@ def create_json(tag):
 	# This only handles text links properly, and doesn't apply inner formatting
 	# That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
 	if tag.name == 'a':
-		return {"type": "text", "marks": [{"type": "link", "attrs": [{"href": tag['href'].strip()}]}], "text": tag.get_text(strip=True)}
+		return {"type": "text", "marks": [{"type": "link", "attrs": {"href": tag['href'].strip()}}], "text": tag.get_text(strip=True)}
 
 	contents = []
 	simple_type_map = {
@@ -241,6 +245,9 @@ def merge_textleaves(json, path, bulk_patch):
 				children.append(child)
 				pointer += 2 # We need to skip the newly appended since it's not a text node
 			else:
+				# Empty text nodes are not allowed, so we remove them
+				if child["text"] == '':
+					continue
 				# len is guaranteed to be >= to the pointer value if I wrote this correctly
 				if len(children) <= pointer:
 					children.append(child)

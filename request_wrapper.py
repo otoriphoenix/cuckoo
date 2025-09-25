@@ -73,7 +73,7 @@ def fetch_file(file_id):
 		headers={
 			"Authorization": auth,
 			"Content-Type": "application/json"
-		}
+		}, allow_redirects=True
 	)
 	if file.status_code != 200:
 		raise Exception(f"Error downloading file!\n{file.status_code}")

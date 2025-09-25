@@ -28,7 +28,7 @@ class ConfluenceDocument:
 		for attached_file in self.attachments.keys():
 			self.attachments[attached_file] = call.attach(f"{os.getenv('CONFLUENCE_TMP')}/{self.collection.shortname}/attachments/{self.confluence_slug}/{attached_file}", self.id, 'documentAttachment')
 			time.sleep(1)
-			#break
+			#break # For debugging purposes. Disabled in prod.
 		self.postprocess()
 		if home:
 			self.make_space_description()
@@ -56,34 +56,15 @@ class ConfluenceDocument:
 	# Creates a document with the given title.
 	# This does not get the content in place yet!
 	def fake_upload(self):
-		pass
+		answer = call.json_endpoint('documents.create', {
+			"title": self.title,
+			"text": "",
+			"collectionId": self.collection.id,
+			"parentDocumentId": self.parent,
+			"publish": True
+		})
+		self.id = answer['id']
 
 	# Replaces some Confluence IDs/locations with the Outline equivalents
 	def postprocess(self):
 		pass
-
-	# Imports the document into Outline
-	# Returns the resulting markdown to be used in postprocessing
-	def upload_file(self):
-		answer_raw = requests.post(f"{os.getenv('OUTLINE_API')}/documents.import",
-			headers={
-				# I'm not allowed to set this header myself when using the library
-				# because Outline will throw a hissyfit
-				#"Content-Type": "multipart/form-data",
-				"Authorization": auth
-			},
-			data={
-				"parentDocumentId": self.parent,
-				"collectionId": self.collection.id,
-				"publish": "true" # and I'm not allowed to use a PYTHON TRUE HERE
-			},
-			files={
-				"file": (self.title, self.content, 'text/html') # this was so much work
-			}
-		)
-		answer = json.loads(answer_raw.text)
-		print(answer)
-		if answer["ok"] == False:
-			raise Exception(f"Error uploading file!\n{answer['status']}: {answer['message']}")
-		self.id = answer["data"]["id"]
-		self.content = answer["data"]["text"]
