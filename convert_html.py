@@ -236,25 +236,19 @@ def merge_textleaves(json, path, bulk_patch):
 	children = []
 	pointer = 0
 	if has_textleaf(node['content']):
-		#print([child['text'] if 'text' in child else child['type'] for child in node['content']])
-		#print(f"processing {path}, {len(node['content'])}")
 		for i, child in enumerate(node['content']):
 			if not child['type']  == 'text':
 				children.append(child)
-				pointer += 2
+				pointer += 2 # We need to skip the newly appended since it's not a text node
 			else:
 				# len is guaranteed to be >= to the pointer value if I wrote this correctly
 				if len(children) <= pointer:
 					children.append(child)
-					#print(len(children), pointer)
 				elif equal_marks(child, children[pointer]):
-					#print(children[pointer]['type'], pointer)
-					#print([child['text'] if 'text' in child else child['type'] for child in children])
 					children[pointer]['text'] += child['text']
 				else:
 					children.append(child)
 					pointer += 1
-		#print([child['text'] if 'text' in child else child['type'] for child in children])
 		bulk_patch.append({"op": 'replace', 'path': path + f"/content", 'value': children})
 	return bulk_patch
 
@@ -309,9 +303,7 @@ def wrap_textleaves(json, path, bulk_patch):
 	children = []
 	pointer = 0
 	if has_textleaf(node['content']):
-		#print(f"processing {path}, {len(node['content'])}")
 		for i, child in enumerate(node['content']):
-			#print(f"element {i}")
 			if not child['type'] in ['text', 'br']:
 				children.append(child)
 				pointer += 1
@@ -319,9 +311,7 @@ def wrap_textleaves(json, path, bulk_patch):
 				# len is guaranteed to be >= to the pointer value if I wrote this correctly
 				if len(children) == pointer:
 					children.append({'type': 'paragraph', 'content': []})
-					#print(len(children), pointer)
 				children[pointer]['content'].append(child)
-		#print([child['type'] for child in children])
 		bulk_patch.append({"op": 'replace', 'path': path + f"/content", 'value': children})
 	return bulk_patch
 
