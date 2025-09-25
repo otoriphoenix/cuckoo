@@ -185,6 +185,8 @@ def create_json(tag):
 	if tag_type == 'image':
 		attrs["src"] = tag['src']
 		attrs["alt"] = tag['alt'] if 'alt' in tag.attrs and tag['alt'] != '' else None
+		attrs["width"] = int(tag['width']) if 'width' in tag.attrs else 250
+		attrs["height"] = int(tag['height']) if 'height' in tag.attrs else 250
 
 	if tag_type == 'heading':
 		attrs['level'] = int(tag.name[1])
@@ -218,8 +220,7 @@ def create_json(tag):
 		return None
 
 	if tag_type == 'checkbox_item':
-		checked = ("class" in tag.attrs and "checked" in tag['class'])
-		parsed.update({"checked": checked})
+		attrs["checked"] = ("class" in tag.attrs and "checked" in tag['class'])
 
 	if len(attrs.keys()) > 0:
 		parsed.update({"attrs": attrs})
