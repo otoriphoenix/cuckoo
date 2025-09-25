@@ -34,13 +34,13 @@ def not_br(tag):
 def call_json_endpoint(endpoint, json_data):
 	answer_raw = None
 	while not answer_raw:
-		answer_raw = requests.post(f"{os.getenv(OUTLINE_API)}/{endpoint}",
+		answer_raw = requests.post(f"{os.getenv('OUTLINE_API')}/{endpoint}",
 		headers={
 			"Content-Type": "application/json",
 			"Authorization": auth
 		}, json=json_data)
 
-		
+
 		#if answer_raw.status_code == 429:
 			#time.sleep(float(answer_raw.headers['Retry-After'])/1000)
 		#	continue
@@ -74,7 +74,7 @@ def attach(filepath, document_id = None, preset = None):
 	answer = call_json_endpoint("attachments.create", upload_meta)
 	file_id = answer["attachment"]["id"]
 	attachment_meta = answer["form"]
-	answer_raw = requests.post(f"{os.getenv(OUTLINE_API)}/files.create",
+	answer_raw = requests.post(f"{os.getenv('OUTLINE_API')}/files.create",
 		headers={"Authorization": auth},
 		data=attachment_meta,
 		files={"file": (filename, open(filepath, "rb"), mime)})
@@ -354,7 +354,7 @@ class ConfluenceDocument:
 
 		call_json_endpoint("documents.update", {"id": self.id, "text": self.content})
 		return
-		
+
 
 	# Sets the content of the document as the description of the collection
 	# Deletes the document afterwards
@@ -464,7 +464,7 @@ class ConfluenceSpace:
 		#NOTE: modelId in mentions is mentioned user, this is reflected in the generated link => only relevant attribute!!!
 		#NOTE: id is id of mention itself, should be unique on page but can be replicated across multiple pages -> this can be null and still work with the import, as a new one is generated on import!
 		#NOTE: if this is set through md postprocessing (as opposed to json prosemirror data), outline will automatically correct this - however, this gets immediately fucked over by tables
-		#NOTE: for export-import: 
+		#NOTE: for export-import:
 		# - create attachment with preset workspaceImport (ex. {"preset":"workspaceImport","contentType":"application/zip","size":2031516,"name":"Sascha-Test-export.json.zip"})
 
 		answer = call_json_endpoint("collections.export", {"format": "json",
@@ -476,11 +476,11 @@ class ConfluenceSpace:
 			time.sleep(2)
 
 		# The documentation tried to sell me this as a POST request...
-		os.system(f'wget --header="Content-Type: application/json" --header="Authorization: {auth}" -O {os.getenv("CONFLUENCE_TMP")}/{self.shortname}-raw.zip {OUTLINE_API}/fileOperations.redirect?id={file_id}')
+		os.system(f'wget --header="Content-Type: application/json" --header="Authorization: {auth}" -O {os.getenv("OUTLINE_TMP")}/{self.shortname}-raw.zip {os.getenv("OUTLINE_API")}/fileOperations.redirect?id={file_id}')
 
-		with zipfile.ZipFile(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}-raw.zip", "r") as zip_ref:
-			zip_ref.extractall(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}")
-		self.json = open(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}/{self.name}.json", "r").read()
+		with zipfile.ZipFile(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}-raw.zip", "r") as zip_ref:
+			zip_ref.extractall(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}")
+		self.json = open(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}/{self.name}.json", "r").read()
 
 		# We have the file, so we delete it from the server as to not pollute it
 		answer = call_json_endpoint("fileOperations.delete", {"id": file_id})
@@ -492,10 +492,10 @@ class ConfluenceSpace:
 		self.praise_the_whale()
 
 		# ...zip the file again...
-		os.system(f"cd {os.getenv('CONFLUENCE_TMP')}/{self.shortname} && zip -r {os.getenv('CONFLUENCE_TMP')}/{self.shortname}.zip .")
+		os.system(f"cd {os.getenv('OUTLINE_TMP')}/{self.shortname} && zip -r {os.getenv('OUTLINE_TMP')}/{self.shortname}.zip .")
 
 		# ...and reimport the collection
-		import_file_id = attach(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}.zip", None, "workspaceImport")
+		import_file_id = attach(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}.zip", None, "workspaceImport")
 		answer = call_json_endpoint("collections.import", {"attachmentId": import_file_id, "format": "json", "permission": None, "sharing": False})
 
 	#TODO add praise
@@ -518,7 +518,7 @@ class ConfluenceSpace:
 #			 collections.add_user for specific user, same scheme + userId -> we should add at least one admin to each collection!
 #		collections.add_group for groups (like admins), same scheme + groupId
 #			 ACL list for spaces (with shortname)? possibly via groups
-	
+
 # Step 1: Extract all requested space exports to temporary location
 #		 Now, every space resides in a folder. The folder name matches the space's shortname
 # Step 2: For each space, create a ConfluenceSpace object
@@ -526,8 +526,8 @@ class ConfluenceSpace:
 # Step 4: Profit
 # Clear tmp directories
 os.system(f"rm -r {os.getenv('CONFLUENCE_TMP')}")
-os.system(f"rm -r {os.getenv('CONFLUENCE_TMP')}")
-os.system(f"mkdir {os.getenv('CONFLUENCE_TMP')}")
+os.system(f"rm -r {os.getenv('OUTLINE_TMP')}")
+os.system(f"mkdir {os.getenv('OUTLINE_TMP')}")
 space_zips = sys.argv[1:]
 for zip_file in space_zips:
 	open_zip(zip_file)
