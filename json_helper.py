@@ -7,8 +7,9 @@ def replace_from_map(json, path, node_type, attr, attr_map):
 	if node['type'] == node_type:
 		attr_path = path + attr
 		current_val = resolve_pointer(json, attr_path)
-		new_val = attr_map[current_val]
-		jsonpatch.apply_patch(json, [{'op': 'replace', 'path': attr_path, 'value': new_val}], in_place=True)
+		if current_val in attr_map:
+			new_val = attr_map[current_val]
+			jsonpatch.apply_patch(json, [{'op': 'replace', 'path': attr_path, 'value': new_val}], in_place=True)
 
 	if not 'content' in node:
 		return
