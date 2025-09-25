@@ -1,6 +1,5 @@
 import re
 from bs4 import BeautifulSoup, NavigableString
-import json
 from jsonpointer import resolve_pointer
 import jsonpatch
 from minify_html import minify
@@ -13,6 +12,35 @@ def checklist_predicate(tag):
 
 def task_item_predicate(tag):
 	return tag and tag.name == 'li' and 'data-inline-task-id' in tag.attrs
+
+def wrapper_tag_predicate(tag):
+	return tag and tag.name in ['div', 'span', 'time', 'tbody']
+
+# Tags that fuck up any given import
+# Includes the following:
+# - The profile-full tables to resolve display issues
+#   These are empty anyways, so it's fine
+# - profile picture for vcards - not really necessary to display
+#   They're more of eye candy than important content
+# - Certain divs
+def bad_tag_predicate(tag):
+	if not tag:
+		return False
+
+	bad_tags = {
+		"span": ["aui-avatar"],
+		"div": ["update-item-icon", "update-item-profile", "more-link-container"],
+		"table": ["profile-full"],
+	}
+	if not tag.name in bad_tags.keys():
+		return False
+
+	if not 'class' in tag.attrs:
+		return False
+	for clazz in bad_tags[tag.name]:
+		if clazz in tag['class']:
+			return True
+	return False
 
 # Removes superflous HTML, translates some tag names and gives us a dict of attachments
 def clean_html(soup):
@@ -51,25 +79,9 @@ def clean_html(soup):
 	metadata.append(footer)
 	metadata = metadata.wrap(soup.new_tag('p'))
 
-
-	# Tags that fuck up any given import
-	# Includes the following:
-	# - Remove the profile-full tables to resolve display issues
-	#   These are empty anyways, so it's fine
-	# - profile picture for vcards - not really necessary to display
-	#   They're more of eye candy than important content
-	# - Remove certain divs
-	bad_tags = {
-		"span": ["aui-avatar"],
-		"div": ["update-item-icon", "update-item-profile", "more-link-container"],
-		"table": ["profile-full"],
-	}
-
-	for name, classes in bad_tags.items():
-		for clazz in classes:
-			bad_tags = soup.find_all(name=name, class_=clazz)
-			for bad_tag in bad_tags:
-				bad_tag.decompose()
+	bad_tags = soup.find_all(bad_tag_predicate)
+	for bad_tag in bad_tags:
+		bad_tag.decompose()
 
 	# These don't seem to have an Outline equivalent, so we remove them
 	colgroups = soup.find_all('colgroup')
@@ -115,12 +127,10 @@ def clean_html(soup):
 		l.name = 'checkbox_list'
 
 	# Unwrap wrapper tags. Done at the end to avoid issues with other tags.
-	wrapper_tags = ['div', 'span', 'time', 'tbody']
-	for wrapper_tag in wrapper_tags:
-		wrappers = soup.find_all(wrapper_tag)
-		for wrapper in wrappers:
-			wrapper.unwrap()
-			wrapper.smooth()
+	wrappers = soup.find_all(wrapper_tag_predicate)
+	for wrapper in wrappers:
+		wrapper.unwrap()
+		wrapper.smooth()
 
 	# We need the attachments later, so let's pass them to the rest
 	return attachments
@@ -219,7 +229,7 @@ def merge_textleaves(json, path, bulk_patch):
 	node = resolve_pointer(json, path)
 	if not 'content' in node:
 		return bulk_patch
-	
+
 	for i, _ in enumerate(node['content']):
 		bulk_patch = merge_textleaves(json, path + f'/content/{i}', bulk_patch)
 
@@ -250,9 +260,9 @@ def merge_textleaves(json, path, bulk_patch):
 
 def equal_marks(textleaf_1, textleaf_2):
 	if not (('marks' in textleaf_1) == ('marks' in textleaf_2)):
-		
+
 		return False
-	
+
 	if 'marks' in textleaf_1:
 		return textleaf_1['marks'] == textleaf_2['marks']
 	return True
@@ -292,7 +302,7 @@ def wrap_textleaves(json, path, bulk_patch):
 	node = resolve_pointer(json, path)
 	if node['type'] in ['heading', 'paragraph'] or not 'content' in node:
 		return bulk_patch
-	
+
 	for i, _ in enumerate(node['content']):
 		bulk_patch = wrap_textleaves(json, path + f'/content/{i}', bulk_patch)
 
@@ -313,13 +323,13 @@ def wrap_textleaves(json, path, bulk_patch):
 				children[pointer]['content'].append(child)
 		#print([child['type'] for child in children])
 		bulk_patch.append({"op": 'replace', 'path': path + f"/content", 'value': children})
-	return bulk_patch	
+	return bulk_patch
 
 # Replaces an element in a JSON list with n new elements.
 def expand_into_json_list(json, path, new_elements):
 	if len(new_elements) == 0:
 		return
-	
+
 	new_elements = [{"op": 'add', 'path': path, 'value': element} for element in new_elements]
 
 	new_elements[-1].update({"op": 'replace'})
@@ -336,8 +346,3 @@ def html_to_json(html_content):
 	bulk_patch = wrap_textleaves(json, '', [])
 	jsonpatch.apply_patch(json, bulk_patch, in_place=True)
 	return json, attachments
-
-if __name__ == '__main__':
-	filec = open("test/test4.html", "r").read()
-	c, _ = html_to_json(filec)
-	open("test/test4.json", "w").write(json.dumps(c))
