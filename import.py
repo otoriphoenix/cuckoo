@@ -500,11 +500,11 @@ class ConfluenceSpace:
 			time.sleep(2)
 
 		# The documentation tried to sell me this as a POST request...
-		os.system(f'wget --header="Content-Type: application/json" --header="Authorization: {auth}" -O {os.getenv("CONFLUENCE_TMP")}/{self.shortname}-raw.zip {OUTLINE_API}/fileOperations.redirect?id={file_id}')
+		os.system(f'wget --header="Content-Type: application/json" --header="Authorization: {auth}" -O {os.getenv("OUTLINE_TMP")}/{self.shortname}-raw.zip {os.getenv("OUTLINE_API")}/fileOperations.redirect?id={file_id}')
 
-		with zipfile.ZipFile(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}-raw.zip", "r") as zip_ref:
-			zip_ref.extractall(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}")
-		self.json = open(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}/{self.name}.json", "r").read()
+		with zipfile.ZipFile(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}-raw.zip", "r") as zip_ref:
+			zip_ref.extractall(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}")
+		self.json = open(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}/{self.name}.json", "r").read()
 
 		# We have the file, so we delete it from the server as to not pollute it
 		answer = call_json_endpoint("fileOperations.delete", {"id": file_id})
@@ -516,10 +516,10 @@ class ConfluenceSpace:
 		self.praise_the_whale()
 
 		# ...zip the file again...
-		os.system(f"cd {os.getenv('CONFLUENCE_TMP')}/{self.shortname} && zip -r {os.getenv('CONFLUENCE_TMP')}/{self.shortname}.zip .")
+		os.system(f"cd {os.getenv('OUTLINE_TMP')}/{self.shortname} && zip -r {os.getenv('OUTLINE_TMP')}/{self.shortname}.zip .")
 
 		# ...and reimport the collection
-		import_file_id = attach(f"{os.getenv('CONFLUENCE_TMP')}/{self.shortname}.zip", None, "workspaceImport")
+		import_file_id = attach(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}.zip", None, "workspaceImport")
 		answer = call_json_endpoint("collections.import", {"attachmentId": import_file_id, "format": "json", "permission": None, "sharing": False})
 
 	#TODO add praise
@@ -550,8 +550,8 @@ class ConfluenceSpace:
 # Step 4: Profit
 # Clear tmp directories
 os.system(f"rm -r {os.getenv('CONFLUENCE_TMP')}")
-os.system(f"rm -r {os.getenv('CONFLUENCE_TMP')}")
-os.system(f"mkdir {os.getenv('CONFLUENCE_TMP')}")
+os.system(f"rm -r {os.getenv('OUTLINE_TMP')}")
+os.system(f"mkdir {os.getenv('OUTLINE_TMP')}")
 space_zips = sys.argv[1:]
 for zip_file in space_zips:
 	open_zip(zip_file)
