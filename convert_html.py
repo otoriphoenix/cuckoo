@@ -165,9 +165,11 @@ def create_json(tag):
 	# This only handles text links properly, and doesn't apply inner formatting
 	# That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
 	if tag.name == 'a':
-		# If there's no schema given, no slashes in th url and it ends in .html, assume local document link
-		if 'href' in tag.attrs and not ':' in tag['href'] and not '/' in tag['href'] and tag['href'].endswith('.html'):
-			return {"type": "mention", "attrs": {"type": "document", "modelId": tag["href"][:-5].split("_")[-1], "label": tag.get_text()}}
+		# If there's no schema given, no slashes in th url and it ends in .html (before an anchor), assume local document link
+		if 'href' in tag.attrs and not ':' in tag['href'] and not '/' in tag['href'] and '.html' in tag['href']:
+			slug, _, anchor = tag['href'].partition('.html')
+			slug = slug.split("_")[-1]
+			return {"type": "mention", "attrs": {"type": "document", "modelId": slug + anchor, "label": tag.get_text()}}
 		return {"type": "text", "marks": [{"type": "link", "attrs": {"href": tag['href'].strip()}}], "text": tag.get_text(strip=True)}
 
 	if tag.name == 'user_mention':
