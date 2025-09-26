@@ -114,8 +114,8 @@ class ConfluenceSpace:
 		for doc_name, document in self.documents.items():
 			jsonpatch.apply_patch(self.json, [{"op": 'replace', 'path': f"/documents/{document['outlineID']}/data", 'value': document['outlineContent']}], in_place=True)
 			replace_mentions(self.json, f"/documents/{document['outlineID']}/data", 'user', self.users, f'{os.getenv("CONFLUENCE_SRC")}/display/~')
-			# Technically, this would work. However, Outline assigns new IDs on import without updating these references, so it's disabled for now.
-			#replace_mentions(self.json, f"/documents/{document['outlineID']}/data", 'document', doc_id_map, f'{os.getenv("CONFLUENCE_SRC")}/spaces/{self.shortname}/pages/')
+			# Technically, this would work. However, Outline assigns new IDs on import without updating these references, so it's disabled for now. (https://github.com/outline/outline/issues/9584)
+			replace_mentions(self.json, f"/documents/{document['outlineID']}/data", 'document', {}, f'{os.getenv("CONFLUENCE_SRC")}/spaces/{self.shortname}/pages/')
 		if self.description:
 			jsonpatch.apply_patch(self.json, [{"op": 'replace', 'path': "/collection/data", 'value': self.description}], in_place=True)
 		self.json = json.dumps(self.json)
