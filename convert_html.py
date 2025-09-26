@@ -7,6 +7,8 @@ from minify_html import minify
 # The magic needed to translate the HTML output of a standard Confluence instance (Data Center license)
 # into Outline's JSON format.
 
+text_type_nodes = ["text", "br", "mention"]
+
 def checklist_predicate(tag):
 	return tag and tag.name == 'ul' and 'data-inline-tasks-content-id' in tag.attrs
 
@@ -113,6 +115,9 @@ def clean_html(soup):
 			"confluence-information-macro-tip": "c_tip",
 			"confluence-information-macro-note": "c_success",
 			"confluence-information-macro-warning": "c_warning",
+		},
+		"a": {
+			"confluence-userlink": "user_mention",
 		}
 	}
 	for tag_name, translation in tag_translation.items():
@@ -152,7 +157,13 @@ def create_json(tag):
 	# This only handles text links properly, and doesn't apply inner formatting
 	# That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
 	if tag.name == 'a':
+		# If there's no schema given, no slashes in th url and it ends in .html, assume local document link
+		if 'href' in tag.attrs and not ':' in tag['href'] and not '/' in tag['href'] and tag['href'].endswith('.html'):
+			return {"type": "mention", "attrs": {"type": "document", "modelId": tag["href"][:-5].split("_")[-1], "label": tag.get_text()}}
 		return {"type": "text", "marks": [{"type": "link", "attrs": {"href": tag['href'].strip()}}], "text": tag.get_text(strip=True)}
+
+	if tag.name == 'user_mention':
+		return {"type": "mention", "attrs": {"type": "user", "modelId": tag["data-username"], "label": tag.get_text()}}
 
 	contents = []
 	simple_type_map = {
@@ -175,7 +186,7 @@ def create_json(tag):
 		'c_success': 'container_notice',
 		'pre': 'code_fence',
 		'img': 'image',
-		'code': 'code_inline'
+		'code': 'code_inline',
 	}
 
 	tag_type = simple_type_map[tag.name] if tag.name in simple_type_map.keys() else tag.name
@@ -293,7 +304,7 @@ def unwrap_marked_text(json, path):
 
 def has_textleaf(node_content):
 	for child in node_content:
-		if child['type'] == "text":
+		if child['type'] in text_type_nodes:
 			return True
 	return False
 
@@ -314,7 +325,7 @@ def wrap_textleaves(json, path, bulk_patch):
 	pointer = 0
 	if has_textleaf(node['content']):
 		for i, child in enumerate(node['content']):
-			if not child['type'] in ['text', 'br']:
+			if not child['type'] in text_type_nodes:
 				children.append(child)
 				pointer += 1
 			else:
