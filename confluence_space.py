@@ -56,7 +56,8 @@ class ConfluenceSpace:
 			if self.process_home and not document_id:
 				self.process_home = False
 				self.description = document_content
-			self.documents[document_name] = {"outlineID": document_id, "outlineContent": document_content}
+			if document_id:
+				self.documents[document_name] = {"outlineID": document_id, "outlineContent": document_content}
 			#return #for debugging purposes, stop after 1 document. Disabled in prod.
 
 			# Avoid rate limit

@@ -172,7 +172,7 @@ def create_json(tag):
 		'c_info': 'container_notice',
 		'c_tip': 'container_notice',
 		'c_warning': 'container_notice',
-		'c_note': 'container_notice',
+		'c_success': 'container_notice',
 		'pre': 'code_fence',
 		'img': 'image',
 		'code': 'code_inline'
