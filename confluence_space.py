@@ -7,11 +7,13 @@ import zipfile
 import jsonpatch
 import json
 import shutil
+from json_helper import replace_mentions
 
 # Class to help import a Confluence space as an Outline collection
 class ConfluenceSpace:
-	def __init__(self, shortname):
+	def __init__(self, shortname, users):
 		self.shortname = shortname
+		self.users = users
 
 	# Creates the space if it doesn't exist and starts processing the pages listed in index.html
 	# Flow:
@@ -39,7 +41,7 @@ class ConfluenceSpace:
 	def create_collection(self):
 		answer = call.json_endpoint("collections.create", {
 			"name": self.name,
-			"description": f"Imported with Cuckoo Importer v1.0.0\n\n© Sascha Bacher",
+			"description": f"Imported with Cuckoo Importer v1.1.0\n\n© Sascha Bacher",
 			"permission": None,
 			"sharing": False
 		})
@@ -56,7 +58,8 @@ class ConfluenceSpace:
 			if self.process_home and not document_id:
 				self.process_home = False
 				self.description = document_content
-			self.documents[document_name] = {"outlineID": document_id, "outlineContent": document_content}
+			if document_id:
+				self.documents[document_name] = {"outlineID": document_id, "outlineContent": document_content}
 			#return #for debugging purposes, stop after 1 document. Disabled in prod.
 
 			# Avoid rate limit
@@ -93,6 +96,7 @@ class ConfluenceSpace:
 
 		# Then we delete the collection
 		answer = call.json_endpoint("collections.delete", {"id": self.id})
+		call.json_endpoint("documents.empty_trash", {})
 
 		# We work our magic...
 		self.praise_the_whale()
@@ -106,12 +110,14 @@ class ConfluenceSpace:
 		answer = call.json_endpoint("collections.import", {"attachmentId": import_file_id, "format": "json", "permission": None, "sharing": False})
 
 	def praise_the_whale(self):
-		patches = []
+		doc_id_map = {key[:-5].split("_")[-1]: self.documents[key]['outlineID'] for key in self.documents}
 		for doc_name, document in self.documents.items():
-			patches.append({"op": 'replace', 'path': f"/documents/{document['outlineID']}/data", 'value': document['outlineContent']})
+			jsonpatch.apply_patch(self.json, [{"op": 'replace', 'path': f"/documents/{document['outlineID']}/data", 'value': document['outlineContent']}], in_place=True)
+			replace_mentions(self.json, f"/documents/{document['outlineID']}/data", 'user', self.users, f'{os.getenv("CONFLUENCE_SRC")}/display/~')
+			# Technically, this would work. However, Outline assigns new IDs on import without updating these references, so it's disabled for now. (https://github.com/outline/outline/issues/9584)
+			replace_mentions(self.json, f"/documents/{document['outlineID']}/data", 'document', {}, f'{os.getenv("CONFLUENCE_SRC")}/spaces/{self.shortname}/pages/')
 		if self.description:
-			patches.append({"op": 'replace', 'path': "/collection/data", 'value': self.description})
-		jsonpatch.apply_patch(self.json, patches, in_place=True)
+			jsonpatch.apply_patch(self.json, [{"op": 'replace', 'path': "/collection/data", 'value': self.description}], in_place=True)
 		self.json = json.dumps(self.json)
 		with open(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}/{self.name}.json", 'w') as outfile:
 			outfile.write(self.json)

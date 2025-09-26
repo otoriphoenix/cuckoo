@@ -14,11 +14,9 @@ auth = f"Bearer {os.getenv('API_TOKEN')}"
 # Load the already known user list. Currently, this is maintained manually.
 users = {}
 if os.getenv('USER_MAPPING') != '':
-	with open("users.json", "r") as user_map:
+	with open(os.getenv('USER_MAPPING'), "r") as user_map:
 		users = user_map.read()
 	users = json.loads(users)
-else:
-	users = {}
 
 # Clear tmp directories
 os.system(f"rm -r {os.getenv('CONFLUENCE_TMP')}")
@@ -35,4 +33,4 @@ for zip_file in space_zips:
 		zip_ref.extractall(os.getenv('CONFLUENCE_TMP'))
 spaces = os.listdir(os.getenv('CONFLUENCE_TMP'))
 for space in spaces:
-	ConfluenceSpace(space).import_space(HOME_IS_DESCRIPTION)
+	ConfluenceSpace(space, users).import_space(HOME_IS_DESCRIPTION)
