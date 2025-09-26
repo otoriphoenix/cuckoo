@@ -108,6 +108,14 @@ def clean_html(soup):
 	for emoji in emojis:
 		emoji.replace_with(chr(int(emoji["data-emoji-id"], 16)))
 
+	# Recent space activity fix
+	activity = soup.find('div', class_='recently-updated recently-updated-social')
+	if activity:
+		updates = soup.find_all('ul', class_='update-items')
+		for update in updates:
+			person = update.div.extract()
+			update.insert_before(person)
+
 	# Translate certain tag patterns to tag names
 	tag_translation = {
 		"div": {
