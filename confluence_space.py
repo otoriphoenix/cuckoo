@@ -41,7 +41,7 @@ class ConfluenceSpace:
 	def create_collection(self):
 		answer = call.json_endpoint("collections.create", {
 			"name": self.name,
-			"description": f"Imported with Cuckoo Importer v1.0.0\n\n© Sascha Bacher",
+			"description": f"Imported with Cuckoo Importer v1.1.0\n\n© Sascha Bacher",
 			"permission": None,
 			"sharing": False
 		})
