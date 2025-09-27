@@ -7,7 +7,8 @@ from minify_html import minify
 # The magic needed to translate the HTML output of a standard Confluence instance (Data Center license)
 # into Outline's JSON format.
 
-text_type_nodes = ["text", "br", "mention"]
+# Inline-type nodes that need to be wrapped in a block-type one (according to my understanding of the Outline source code)
+text_type_nodes = ["text", "br", "mention", "image", "embed"]
 
 def checklist_predicate(tag):
 	return tag and tag.name == 'ul' and 'data-inline-tasks-content-id' in tag.attrs
