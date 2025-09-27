@@ -208,16 +208,6 @@ def create_json(tag):
 		attrs["width"] = int(tag['width']) if 'width' in tag.attrs else 250
 		attrs["height"] = int(tag['height']) if 'height' in tag.attrs else 250
 
-	if tag_type == 'attachment':
-		# Link put together manually due to how attachment links look
-		# (under the assumption that Confluence always generates them like this)
-		# Third part of the first split is the filename, with possible attributes attached
-		# First part of the second split is the full filename
-		# Last part of the third split yields the suffix
-		suffix = tag['href'].split('/')[3].split('?')[0].split('.')[-1]
-		attrs["href"] = 'attachments/' + tag["data-linked-resource-container-id"] + '/' + tag['data-linked-resource-id'] + '.' + suffix
-		attrs["title"] = tag["aria-label"] if "aria-label" in tag.attrs and tag["aria-label"] != '' else None
-
 	if tag_type == 'heading':
 		attrs['level'] = int(tag.name[1])
 
@@ -245,6 +235,18 @@ def create_json(tag):
 		child_json = create_json(child)
 		if child_json:
 			contents.append(child_json)
+
+	# Down here so I can remove contents, since an attachment node doesn't have them
+	if tag_type == 'attachment':
+		# Link put together manually due to how attachment links look
+		# (under the assumption that Confluence always generates them like this)
+		# Third part of the first split is the filename, with possible attributes attached
+		# First part of the second split is the full filename
+		# Last part of the third split yields the suffix
+		suffix = tag['href'].split('/')[3].split('?')[0].split('.')[-1]
+		attrs["href"] = 'attachments/' + tag["data-linked-resource-container-id"] + '/' + tag['data-linked-resource-id'] + '.' + suffix
+		attrs["title"] = tag["aria-label"] if "aria-label" in tag.attrs and tag["aria-label"] != '' else None
+		contents = []
 
 	if tag_type == 'paragraph' and len(contents) == 0:
 		return None
