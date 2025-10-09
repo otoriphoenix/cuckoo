@@ -126,6 +126,7 @@ def clean_html(soup):
 		},
 		"a": {
 			"confluence-userlink": "user_mention",
+			"confluence-embedded-file": "attachment",
 		}
 	}
 	for tag_name, translation in tag_translation.items():
@@ -165,7 +166,7 @@ def create_json(tag):
 	# This only handles text links properly, and doesn't apply inner formatting
 	# That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
 	if tag.name == 'a':
-		# If there's no schema given, no slashes in th url and it ends in .html, assume local document link
+		# If there's no schema given, no slashes in the url and it ends in .html, assume local document link
 		if 'href' in tag.attrs and not ':' in tag['href'] and not '/' in tag['href'] and tag['href'].endswith('.html'):
 			return {"type": "mention", "attrs": {"type": "document", "modelId": tag["href"][:-5].split("_")[-1], "label": tag.get_text()}}
 		return {"type": "text", "marks": [{"type": "link", "attrs": {"href": tag['href'].strip()}}], "text": tag.get_text(strip=True)}
@@ -234,6 +235,18 @@ def create_json(tag):
 		child_json = create_json(child)
 		if child_json:
 			contents.append(child_json)
+
+	# Down here so I can remove contents, since an attachment node doesn't have them
+	if tag_type == 'attachment':
+		# Link put together manually due to how attachment links look
+		# (under the assumption that Confluence always generates them like this)
+		# Third part of the first split is the filename, with possible attributes attached
+		# First part of the second split is the full filename
+		# Last part of the third split yields the suffix
+		suffix = tag['href'].split('/')[4].split('?')[0].split('.')[-1]
+		attrs["href"] = 'attachments/' + tag["data-linked-resource-container-id"] + '/' + tag['data-linked-resource-id'] + '.' + suffix
+		attrs["title"] = tag["aria-label"] if "aria-label" in tag.attrs and tag["aria-label"] != '' else None
+		contents = []
 
 	if tag_type == 'paragraph' and len(contents) == 0:
 		return None
