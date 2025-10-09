@@ -243,7 +243,7 @@ def create_json(tag):
 		# Third part of the first split is the filename, with possible attributes attached
 		# First part of the second split is the full filename
 		# Last part of the third split yields the suffix
-		suffix = tag['href'].split('/')[3].split('?')[0].split('.')[-1]
+		suffix = tag['href'].split('/')[4].split('?')[0].split('.')[-1]
 		attrs["href"] = 'attachments/' + tag["data-linked-resource-container-id"] + '/' + tag['data-linked-resource-id'] + '.' + suffix
 		attrs["title"] = tag["aria-label"] if "aria-label" in tag.attrs and tag["aria-label"] != '' else None
 		contents = []
