@@ -145,10 +145,10 @@ def clean_html(soup):
 	for l in tasklists:
 		l.name = 'checkbox_list'
 
-	attachments = soup.find_all('span', class_='confluence-embedded-file-wrapper')
-	for attachment in attachments:
-		if attachment.parent.name in ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-			attachment.parent.unwrap()
+	attached = soup.find_all('span', class_='confluence-embedded-file-wrapper')
+	for attach in attached:
+		if attach.parent.name in ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+			attach.parent.unwrap()
 
 	# Unwrap wrapper tags. Done at the end to avoid issues with other tags.
 	wrappers = soup.find_all(wrapper_tag_predicate)
