@@ -96,7 +96,6 @@ class ConfluenceSpace:
 
 		# Then we delete the collection
 		answer = call.json_endpoint("collections.delete", {"id": self.id})
-		call.json_endpoint("documents.empty_trash", {})
 
 		# We work our magic...
 		self.praise_the_whale()
