@@ -62,7 +62,7 @@ def attach(filepath, document_id = None, preset = None):
 		if answer_raw.status_code == 429:
 			print(answer_raw.headers['Retry-After'])
 		raise Exception(f"Error uploading attachment!\n{answer['status']}: {answer['message']}")
-	return file_id
+	return file_id, filesize
 
 # Downloads a file from a file operation.
 # Returns the file content as bytes

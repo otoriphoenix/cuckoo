@@ -1,5 +1,5 @@
 from convert_html import html_to_json
-from json_helper import replace_from_map
+from json_helper import replace_from_map, add_from_map
 import request_wrapper as call
 import os
 import time
@@ -27,7 +27,8 @@ class ConfluenceDocument:
 		self.convert_html()
 		self.fake_upload()
 		for attached_file in self.attachments.keys():
-			self.attachments[attached_file] = call.attach(f"{os.getenv('CONFLUENCE_TMP')}/{self.collection.shortname}/attachments/{self.confluence_slug}/{attached_file}", self.id, 'documentAttachment')
+			file_id, file_size = call.attach(f"{os.getenv('CONFLUENCE_TMP')}/{self.collection.shortname}/attachments/{self.confluence_slug}/{attached_file}", self.id, 'documentAttachment')
+			self.attachments[attached_file] = {"id": file_id, "size": file_size}
 			time.sleep(1)
 			#break # For debugging purposes. Disabled in prod.
 		self.postprocess()
@@ -68,9 +69,13 @@ class ConfluenceDocument:
 	def postprocess(self):
 		attachment_path = 'attachments/' + self.confluence_slug
 		attachment_map = {}
-		for key, value in self.attachments.items():
-			attachment_map[f'{attachment_path}/{key}'] = f'/api/attachments.redirect?id={value}'
 		# Map image links
 		replace_from_map(self.content, '', 'image', '/attrs/src', attachment_map)
+		# Add the sizes
+		for key, value in self.attachments.items():
+			attachment_map[f'{attachment_path}/{key}'] = value["size"]
+		add_from_map(self.content, '', 'attachment', '/attrs/href', '/attrs/size', attachment_map)
 		# Map other attachments
+		for key, value in self.attachments.items():
+			attachment_map[f'{attachment_path}/{key}'] = f'/api/attachments.redirect?id={value["id"]}'
 		replace_from_map(self.content, '', 'attachment', '/attrs/href', attachment_map)

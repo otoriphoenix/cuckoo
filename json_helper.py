@@ -9,13 +9,28 @@ def replace_from_map(json, path, node_type, attr, attr_map):
 		current_val = resolve_pointer(json, attr_path)
 		if current_val in attr_map:
 			new_val = attr_map[current_val]
-			jsonpatch.apply_patch(json, [{'op': 'replace', 'path': attr_path, 'value': new_val}], in_place=True)
+			jsonpatch.apply_patch(json, [{'op': 'add', 'path': attr_path, 'value': new_val}], in_place=True)
 
 	if not 'content' in node:
 		return
 
 	for i, child in enumerate(node['content']):
 		replace_from_map(json, path + f'/content/{i}', node_type, attr, attr_map)
+
+def add_from_map(json, path, node_type, test_attr, new_attr, attr_map):
+	node = resolve_pointer(json, path)
+	if node['type'] == node_type:
+		attr_path = path + test_attr
+		current_val = resolve_pointer(json, attr_path)
+		if current_val in attr_map:
+			new_val = attr_map[current_val]
+			jsonpatch.apply_patch(json, [{'op': 'add', 'path': path + new_attr, 'value': new_val}], in_place=True)
+
+	if not 'content' in node:
+		return
+
+	for i, child in enumerate(node['content']):
+		add_from_map(json, path + f'/content/{i}', node_type, test_attr, new_attr, attr_map)
 
 def replace_mentions(json, path, mention_type, mentions_map, alt_prefix):
 	node = resolve_pointer(json, path)

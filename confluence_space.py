@@ -105,7 +105,7 @@ class ConfluenceSpace:
 		shutil.make_archive(path, 'zip', path)
 
 		# ...and reimport the collection
-		import_file_id = call.attach(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}.zip", None, "workspaceImport")
+		import_file_id, _ = call.attach(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}.zip", None, "workspaceImport")
 		answer = call.json_endpoint("collections.import", {"attachmentId": import_file_id, "format": "json", "permission": None, "sharing": False})
 
 	def praise_the_whale(self):
