@@ -57,18 +57,16 @@ class ConfluenceSpace:
                 f'Processing "{document_title}", parent: {parent}, internal name: {document_name} ...'
             )
 
-            document_id, document_content = ConfluenceDocument(
+            document = ConfluenceDocument(
                 document_title, document_name, self, parent
-            ).import_doc(self.process_home)
+            )
+            document_id, document_content = document.import_doc(self.process_home)
             if self.process_home:
                 self.process_home = False
                 self.description = document_content
                 document_id = None
             if document_id:
-                self.documents[document_name] = {
-                    "outlineID": document_id,
-                    "outlineContent": document_content,
-                }
+                self.documents[document_name] = document
             # return #for debugging purposes, stop after 1 document. Disabled in prod.
 
             nested = page.find_all("ul", recursive=False)
@@ -119,11 +117,11 @@ class ConfluenceSpace:
 
         import_collection(import_file_id)
 
-        # answer = call.json_endpoint("collections.delete", {"id": self.id})
+        delete_collection(self.id)
 
     def praise_the_whale(self):
         doc_id_map = {
-            key[:-5].split("_")[-1]: self.documents[key]["outlineID"]
+            key[:-5].split("_")[-1]: self.documents[key].doc_id
             for key in self.documents
         }
         for doc_name, document in self.documents.items():
@@ -132,8 +130,19 @@ class ConfluenceSpace:
                 [
                     {
                         "op": "replace",
-                        "path": f"/documents/{document['outlineID']}/data",
-                        "value": document["outlineContent"],
+                        "path": f"/documents/{document.doc_id}/data",
+                        "value": document.get_content("json"),
+                    }
+                ],
+                in_place=True,
+            )
+            jsonpatch.apply_patch(
+                self.json,
+                [
+                    {
+                        "op": "replace",
+                        "path": f"/documents/{document.doc_id}/title",
+                        "value": document.title,
                     }
                 ],
                 in_place=True,

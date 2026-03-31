@@ -26,7 +26,6 @@ class ImageNode(Node):
         self.alt = alt
 
     def toJson(self):
-        # TODO adapt based on outlineAid - if outlineAid is set, return an attachment
         if self.outlineIid:
             baseJson = {
                 "type": "image",
