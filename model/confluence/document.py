@@ -149,7 +149,10 @@ class ConfluenceDocument:
         emojis = soup.select(".emoticon")
         for emoji in emojis:
             if "data-emoji-id" in emoji.attrs:
-                emoji.replace_with(chr(int(emoji["data-emoji-id"], 16)))
+                try:
+                    emoji.replace_with(chr(int(emoji["data-emoji-id"], 16)))
+                except:
+                    emoji.replace_with(emoji["alt"])
             else:  # It's a bloody different type of emoticon.
                 emoji.replace_with(emoji["alt"])
 
