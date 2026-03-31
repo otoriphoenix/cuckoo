@@ -56,9 +56,7 @@ class ConfluenceSpace:
                 f'Processing "{document_title}", parent: {parent}, internal name: {document_name} ...'
             )
 
-            document = ConfluenceDocument(
-                document_title, document_name, self, parent
-            )
+            document = ConfluenceDocument(document_title, document_name, self, parent)
             document_id, document_content = document.import_doc(self.process_home)
             if self.process_home:
                 self.process_home = False

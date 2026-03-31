@@ -16,12 +16,7 @@ class CodeFenceNode(Node):
         self.children = children
 
     def toJson(self):
-        baseJson = {
-            "type": self.node_type,
-            "attrs": {
-                "language": self.lang
-            }
-        }
+        baseJson = {"type": self.node_type, "attrs": {"language": self.lang}}
         if len(self.children) > 0:
             baseJson["content"] = []
             for child in self.children:
@@ -30,9 +25,5 @@ class CodeFenceNode(Node):
 
     def validate(self, path):
         # All valid children get added to the list
-        valid_group = [
-            str(c)
-            for c in self.children
-            if c.node_type in ["text", "br"]
-        ]
+        valid_group = [str(c) for c in self.children if c.node_type in ["text", "br"]]
         return len(valid_group) == len(self.children)

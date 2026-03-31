@@ -38,7 +38,9 @@ class ImageNode(Node):
             }
 
         else:
-            alt = self.alt if self.alt and len(self.alt) > 0 else "(Image on Confluence)"
+            alt = (
+                self.alt if self.alt and len(self.alt) > 0 else "(Image on Confluence)"
+            )
             baseJson = {
                 "type": "text",
                 "marks": [

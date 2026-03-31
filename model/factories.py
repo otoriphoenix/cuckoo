@@ -132,17 +132,16 @@ def node_factory(tag, marks):
             if tag.get_text(strip=True) == "":
                 return None
 
-            add_link_mark = [
+            add_link_mark = (
+                [
                     Mark(
                         "link",
-                        {
-                            "href": (
-                                tag["href"].strip().replace(" ", "%20")
-
-                            )
-                        },
+                        {"href": (tag["href"].strip().replace(" ", "%20"))},
                     )
-                ] if "href" in tag.attrs else []
+                ]
+                if "href" in tag.attrs
+                else []
+            )
             return TextNode(
                 tag.get_text(strip=True),
                 marks

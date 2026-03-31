@@ -111,6 +111,16 @@ def fetch_file(file_id: str):
     return file.content
 
 
+def delete_document(doc_id):
+    headers = {"Authorization": _get_auth(), "Content-Type": "application/json"}
+    json_data = {"id": doc_id}
+    response = requests.post(
+        _get_url("documents.delete"), headers=headers, json=json_data
+    )
+    response_json = response.json()
+    _is_ok_else_throw("documents.delete", response_json)
+
+
 def delete_file(file_id: str):
     headers = {"Authorization": _get_auth(), "Content-Type": "application/json"}
     json_data = {"id": file_id}
@@ -151,3 +161,34 @@ def attach_workspace_import(filepath):
     )
     create_file(filename, filepath, mime, attachment_meta)
     return file_id, filesize
+
+
+def attach_file(filepath, doc_id):
+    filename = filepath.split("/")[-1]
+    mime = from_file(filepath, mime=True)
+    filesize = os.path.getsize(filepath)
+    file_id, attachment_meta = create_attachment(
+        filename, filesize, mime, preset="documentAttachment", document_id=doc_id
+    )
+    create_file(filename, filepath, mime, attachment_meta)
+    return file_id, filesize
+
+
+def import_document(filename, content, parent_id, collection_id):
+    print(parent_id, collection_id)
+    headers = {"Authorization": _get_auth()}
+    form_data = {
+        "name": filename,
+        "parentDocumentId": parent_id,
+        "collectionId": collection_id,
+        "publish": "true",
+    }
+    response = requests.post(
+        _get_url("documents.import"),
+        headers=headers,
+        data=form_data,
+        files={"file": (filename, content, "text/html")},
+    )
+    response_json = response.json()
+    _is_ok_else_throw("documents.import", response_json)
+    return response_json["data"]["id"]

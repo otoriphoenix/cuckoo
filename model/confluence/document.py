@@ -8,6 +8,8 @@ from ..factories import *
 import os
 import json
 
+from ..outline_api import *
+
 
 # Class to help import a Confluence document into Outline
 class ConfluenceDocument:
@@ -177,7 +179,7 @@ class ConfluenceDocument:
         for font_tag in font_tags:
             font_tag.find_parent("table").decompose()
 
-        colgroups = soup.find_all('colgroup')
+        colgroups = soup.find_all("colgroup")
         for colgroup in colgroups:
             colgroup.decompose()
 
@@ -193,9 +195,7 @@ class ConfluenceDocument:
             filepath = f"{os.getenv('CONFLUENCE_TMP')}/{self.collection.shortname}/attachments/{self.confluence_slug}/{attached_file}"
             if not os.path.exists(filepath):
                 continue
-            file_id, file_size = call.attach(
-                filepath, self.doc_id, "documentAttachment"
-            )
+            file_id, file_size = attach_file(filepath, self.doc_id)
             self.attachments[attached_file] = {"id": file_id, "size": file_size}
 
     def fix_attachments(self, root_node):
@@ -217,16 +217,15 @@ class ConfluenceDocument:
     # Actually doing that needs to be done at collection level to ensure proper formatting
     # To let the collection know about this, we just remove the document and its ID
     def make_space_description(self):
-        call.json_endpoint("documents.delete", {"id": self.doc_id})
+        delete_document(self.doc_id)
         self.doc_id = None
 
     # Creates a document with the given title.
     # This gets a mangled version in place as a base for if the import fails.
     def fake_upload(self):
-        answer = call.import_html(
-            self.title, str(self.get_content("html")), self.collection.id, self.parent
+        self.doc_id = import_document(
+            self.title, str(self.get_content("html")), self.parent, self.collection.id
         )
-        self.doc_id = answer["id"]
 
     def convert_to_json(self):
         self.set_content(self.get_content("node").toJson(), "json")
