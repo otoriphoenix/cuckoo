@@ -8,6 +8,8 @@ from .node.user_mention_node import UserMentionNode
 from .node.attachment_node import AttachmentNode
 from .node.image_node import ImageNode
 
+from typing import Iterable
+
 from bs4 import NavigableString, Stylesheet
 import re
 
@@ -22,6 +24,16 @@ def tag_matches(tag, query):
 
 def sane_children(children, correct_types=True):
     children = [child for child in children if child is not None]
+    c = []
+    for child in children:
+        if isinstance(child, Iterable):
+            for gc in child:
+                c.append(gc)
+        else:
+            c.append(child)
+
+    children = c
+
     if not correct_types:
         return children
     if len(children) == 1:

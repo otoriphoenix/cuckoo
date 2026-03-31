@@ -175,7 +175,6 @@ def attach_file(filepath, doc_id):
 
 
 def import_document(filename, content, parent_id, collection_id):
-    print(parent_id, collection_id)
     headers = {"Authorization": _get_auth()}
     form_data = {
         "name": filename,
