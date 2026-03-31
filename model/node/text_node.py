@@ -26,9 +26,6 @@ class TextNode(Node):
 			for mark in self.marks:
 				baseJson["marks"].append(mark.toJson())
 
-		if self.hasMark('link'):
-			baseJson["text"] = baseJson["text"].strip()
-
 		return baseJson
 
 	def hasMark(self, markName):

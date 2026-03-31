@@ -16,8 +16,10 @@ Check whether a tag is matched by a CSS query.
 def tag_matches(tag, query):
 	return tag.css.closest(query) == tag
 
-def sane_children(children):
+def sane_children(children, correct_types=True):
 	children = [child for child in children if child is not None]
+	if not correct_types:
+		return children
 	if len(children) == 1:
 		return children[0]
 	if len(children) == 0:
@@ -60,7 +62,7 @@ def node_factory(tag, marks):
 		else:
 			children.append(c)
 	# Remove None entries
-	children = [child for child in children if child is not None]
+	children = sane_children(children, False)
 
 	# Headings processing can be grouped together
 	if tag.name in ['h1', 'h2', 'h3', 'h4']:
@@ -102,6 +104,10 @@ def node_factory(tag, marks):
 				confluenceId = tag['data-linked-resource-id'] + '.' + suffix
 				confluenceDoc = tag["data-linked-resource-container-id"]
 				return AttachmentNode(title, confluenceId, confluenceDoc)
+
+			# We omit user logos
+			if tag_matches(tag, 'a.user-logo-link'):
+				return None
 
 			# This only handles text links properly, and doesn't apply inner formatting
 			# That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important

@@ -98,7 +98,7 @@ class ConfluenceSpace:
 		answer = call.json_endpoint("fileOperations.delete", {"id": file_id})
 
 		# Then we delete the collection
-		answer = call.json_endpoint("collections.delete", {"id": self.id})
+		#answer = call.json_endpoint("collections.delete", {"id": self.id})
 
 		# We work our magic...
 		self.praise_the_whale()
@@ -110,6 +110,8 @@ class ConfluenceSpace:
 		# ...and reimport the collection
 		import_file_id, _ = call.attach(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}.zip", None, "workspaceImport")
 		answer = call.json_endpoint("collections.import", {"attachmentId": import_file_id, "format": "json", "permission": None, "sharing": False})
+
+		#answer = call.json_endpoint("collections.delete", {"id": self.id})
 
 	def praise_the_whale(self):
 		doc_id_map = {key[:-5].split("_")[-1]: self.documents[key]['outlineID'] for key in self.documents}
