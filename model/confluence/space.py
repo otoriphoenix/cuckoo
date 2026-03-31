@@ -95,6 +95,8 @@ class ConfluenceSpace:
         # Copy documents
         documents_original = {d1: d2 for d1, d2 in self.documents.items()}
 
+        failures = []
+
         for doc_name, document in self.documents.items():
             with zipfile.ZipFile(
                 f"{os.getenv('OUTLINE_TMP')}/{self.shortname}-raw.zip", "r"
@@ -132,6 +134,7 @@ class ConfluenceSpace:
 
             if len(answer2) == 0:
                 print(f"Collection {self.name} not found after import of changed {doc_name}!")
+                failures.append(doc_name)
             else:
                 coll_id = answer2[0]["id"]
 
@@ -139,6 +142,9 @@ class ConfluenceSpace:
                 answer = delete_collection(coll_id)
             # Delete old folder
             os.system(f"rm -rf {os.getenv('OUTLINE_TMP')}/{self.shortname}")
+
+        for fail in failures:
+            print(f"Failed to import document {fail} into collection {self.name}!")
 
     def praise_the_whale(self):
         doc_id_map = {
