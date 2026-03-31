@@ -1,3 +1,5 @@
+import time
+
 from .document import ConfluenceDocument
 from bs4 import BeautifulSoup
 from ..outline_api import *
@@ -85,10 +87,10 @@ class ConfluenceSpace:
             target_file.write(export_file)
 
         # We have the file, so we delete it from the server as to not pollute it
-        answer = call.json_endpoint("fileOperations.delete", {"id": file_id})
+        delete_file(file_id)
 
         # Then we delete the collection
-        answer = call.json_endpoint("collections.delete", {"id": self.id})
+        delete_collection(self.id)
 
         # Copy documents
         documents_original = {d1: d2 for d1, d2 in self.documents.items()}
@@ -120,14 +122,13 @@ class ConfluenceSpace:
                 f"{os.getenv('OUTLINE_TMP')}/{shorty}.zip"
             )
 
+            import_collection(import_file_id)
+
             print(f'Imported "{doc_name}"')
 
             time.sleep(3)
 
-            answer2 = call.json_endpoint(
-                "collections.list",
-                {"limit": 10},
-            )
+            answer2 = list_collections()
 
             if len(answer2) == 0:
                 print(f"Collection {self.name} not found after import of changed {doc_name}!")
@@ -135,7 +136,7 @@ class ConfluenceSpace:
                 coll_id = answer2[0]["id"]
 
                 # answer = call.json_endpoint("fileOperations.delete", {"id": import_file_id})
-                answer = call.json_endpoint("collections.delete", {"id": coll_id})
+                answer = delete_collection(coll_id)
             # Delete old folder
             os.system(f"rm -rf {os.getenv('OUTLINE_TMP')}/{self.shortname}")
 

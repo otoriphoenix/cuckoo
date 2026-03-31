@@ -191,3 +191,12 @@ def import_document(filename, content, parent_id, collection_id):
     response_json = response.json()
     _is_ok_else_throw("documents.import", response_json)
     return response_json["data"]["id"]
+
+
+def list_collections():
+    headers = {"Authorization": _get_auth()}
+    json_data = {"limit": 10}
+    response = requests.post(_get_url("collections.list"), headers=headers, json=json_data)
+    response_json = response.json()
+    _is_ok_else_throw("collections.list", response_json)
+    return response_json["data"]
