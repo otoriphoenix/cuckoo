@@ -107,43 +107,69 @@ class ConfluenceSpace:
         ) as target_file:
             target_file.write(export_file)
 
-        with zipfile.ZipFile(
-            f"{os.getenv('OUTLINE_TMP')}/{self.shortname}-raw.zip", "r"
-        ) as zip_ref:
-            zip_ref.extractall(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}")
-        self.json = open(
-            f"{os.getenv('OUTLINE_TMP')}/{self.shortname}/{self.name}.json", "r"
-        ).read()
-        self.json = json.loads(self.json)
-
         # We have the file, so we delete it from the server as to not pollute it
         answer = call.json_endpoint("fileOperations.delete", {"id": file_id})
 
         # Then we delete the collection
-        # answer = call.json_endpoint("collections.delete", {"id": self.id})
+        answer = call.json_endpoint("collections.delete", {"id": self.id})
 
-        # We work our magic...
-        self.praise_the_whale()
+        # Copy documents
+        documents_original = {d1: d2 for d1, d2 in self.documents.items()}
 
-        # ...zip the file again...
-        path = os.path.join(os.getenv("OUTLINE_TMP"), self.shortname)
-        shutil.make_archive(path, "zip", path)
+        for doc_name, document in self.documents.items():
+            with zipfile.ZipFile(
+                f"{os.getenv('OUTLINE_TMP')}/{self.shortname}-raw.zip", "r"
+            ) as zip_ref:
+                zip_ref.extractall(f"{os.getenv('OUTLINE_TMP')}/{self.shortname}")
+            self.json = open(
+                f"{os.getenv('OUTLINE_TMP')}/{self.shortname}/{self.name}.json", "r"
+            ).read()
+            self.json = json.loads(self.json)
 
-        # ...and reimport the collection
-        import_file_id, _ = call.attach(
-            f"{os.getenv('OUTLINE_TMP')}/{self.shortname}.zip", None, "workspaceImport"
-        )
-        answer = call.json_endpoint(
-            "collections.import",
-            {
-                "attachmentId": import_file_id,
-                "format": "json",
-                "permission": None,
-                "sharing": False,
-            },
-        )
+            print(f'Processing "{doc_name}"')
+            self.documents = {doc_name: document}
+            shorty = f"{self.shortname}_{doc_name}"
 
-        # answer = call.json_endpoint("collections.delete", {"id": self.id})
+            # We work our magic...
+            self.praise_the_whale()
+
+            # ...zip the file again...
+            path = os.path.join(os.getenv("OUTLINE_TMP"), self.shortname)
+            path_shorty = os.path.join(os.getenv("OUTLINE_TMP"), shorty)
+            shutil.make_archive(path_shorty, "zip", path)
+
+            # ...and reimport the collection
+            import_file_id, _ = call.attach(
+                f"{os.getenv('OUTLINE_TMP')}/{shorty}.zip", None, "workspaceImport"
+            )
+            answer = call.json_endpoint(
+                "collections.import",
+                {
+                    "attachmentId": import_file_id,
+                    "format": "json",
+                    "permission": None,
+                    "sharing": False,
+                },
+            )
+
+            print(f'Imported "{doc_name}"')
+
+            time.sleep(3)
+
+            answer2 = call.json_endpoint(
+                "collections.list",
+                {"limit": 10},
+            )
+
+            if len(answer2) == 0:
+                print(f"Collection {self.name} not found after import of changed {doc_name}!")
+            else:
+                coll_id = answer2[0]["id"]
+
+                # answer = call.json_endpoint("fileOperations.delete", {"id": import_file_id})
+                answer = call.json_endpoint("collections.delete", {"id": coll_id})
+            # Delete old folder
+            os.system(f"rm -rf {os.getenv('OUTLINE_TMP')}/{self.shortname}")
 
     def praise_the_whale(self):
         doc_id_map = {
