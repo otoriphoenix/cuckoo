@@ -18,6 +18,7 @@ class AttachmentNode(Node):
 	confluenceAid: str
 	confluenceDoc: str #TODO do you need this?
 	outlineDoc: str #TODO user uid? maybe this is unnecessary -> this could work on document/space level
+	size: int
 
 	"""
 	# Down here so I can remove contents, since an attachment node doesn't have them
@@ -54,7 +55,10 @@ class AttachmentNode(Node):
 			baseJson = {
 				"type": "attachment",
 				"attrs": {
-						"href": f"/api/attachments.redirect?id={self.outlineAid}"
+						"id": None,
+						"href": f"/api/attachments.redirect?id={self.outlineAid}",
+						"title": self.title,
+						"size": self.size
 				}
 			}
 
@@ -72,12 +76,15 @@ class AttachmentNode(Node):
 			}
 		return baseJson
 
-	def patchAid(self, confluenceAids):
+	def patchData(self, confluenceAids):
+		print(self.confluenceAid, self.confluenceAid in confluenceAids.keys())
 		if self.confluenceAid in confluenceAids.keys():
-			self.outlineAid = confluenceAids[self.confluenceAid]
+			self.outlineAid = confluenceAids[self.confluenceAid]["id"]
+			self.size = confluenceAids[self.confluenceAid]["size"]
+			print(self.toJson())
 
 	def setOutlineAid(self, outlineAid):
 		self.outlineAid = outlineAid
 
-	def validate(self):
+	def validate(self, path):
 		return True

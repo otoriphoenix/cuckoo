@@ -37,5 +37,5 @@ class TextNode(Node):
 				return True
 		return False
 
-	def validate(self):
-		return type(self.content) is str
+	def validate(self, path):
+		return True

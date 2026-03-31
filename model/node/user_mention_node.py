@@ -49,5 +49,5 @@ class UserMentionNode(Node):
 	def setOutlineUid(self, outlineUid):
 		self.outlineUid = outlineUid
 
-	def validate(self):
+	def validate(self, path):
 		return True

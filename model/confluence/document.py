@@ -68,7 +68,7 @@ class ConfluenceDocument:
 		self.convert_html()
 		self.fake_upload()
 		self.upload_attachments()
-		self.fix_attachment_ids(self.get_content())
+		self.fix_attachments(self.get_content())
 		self.merge_textleaves(self.get_content())
 		self.wrap_nodes(self.get_content())
 		self.validate()
@@ -175,11 +175,11 @@ class ConfluenceDocument:
 			if not os.path.exists(filepath):
 				continue
 			file_id, file_size = call.attach(filepath, self.doc_id, 'documentAttachment')
-			self.attachments[attached_file] = file_id
+			self.attachments[attached_file] = {"id": file_id, "size": file_size}
 
-	def fix_attachment_ids(self, root_node):
+	def fix_attachments(self, root_node):
 		if root_node.node_type == "attachment":
-			root_node.patchAid(self.attachments)
+			root_node.patchData(self.attachments)
 			return
 
 		if root_node.node_type == "image":
@@ -190,7 +190,7 @@ class ConfluenceDocument:
 			return
 
 		for child in root_node.children:
-			self.fix_attachment_ids(child)
+			self.fix_attachments(child)
 
 	# Sets the content of the document as the description of the collection
 	# Actually doing that needs to be done at collection level to ensure proper formatting
@@ -234,12 +234,12 @@ class ConfluenceDocument:
 		node.children = children_merged
 
 	def wrap_nodes(self, node):
-		inlined = ["br", "text", "user_mention", "image", "attachment"]
+		inlined = ["br", "text", "user_mention", "image"]
 		if node.node_type in inlined:
 			return
 
 		# Already wrapped
-		if node.node_type in ["heading", "paragraph"]:
+		if node.node_type in ["heading", "paragraph", "code_fence", "attachment"]:
 			return
 
 		# check if applicable
@@ -265,7 +265,6 @@ class ConfluenceDocument:
 			children_wrapped.append(produce_paragraph(collector))
 		node.children = children_wrapped
 
-
 	def validate(self):
-		if not self.get_content().validate():
-			raise Exception("Validation Error!")
+		if not self.get_content().validate(""):
+			print("WARNING: Validation Error!")

@@ -55,5 +55,5 @@ class ImageNode(Node):
 		if self.confluenceAid in confluenceAids.keys():
 			self.outlineIid = confluenceAids[self.confluenceAid]
 
-	def validate(self):
+	def validate(self, path):
 		return True

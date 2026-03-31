@@ -11,5 +11,5 @@ class BrNode(Node):
 		}
 		return baseJson
 
-	def validate(self):
+	def validate(self, path):
 		return True

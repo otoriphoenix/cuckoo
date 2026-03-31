@@ -30,7 +30,7 @@ class TagNode(Node):
 			baseJson["attrs"] = self.attrs
 		return baseJson
 
-	def validate(self):
+	def validate(self, path):
 		# All valid children get added to the list
 		valid_group = [str(c) for c in self.children if c.group in self.allowed_children[0].split(' ')]
 
@@ -38,10 +38,15 @@ class TagNode(Node):
 		# and there are no invalid children
 		v = len(valid_group)
 
-		valid_child = [c for c in self.children if c.validate()]
+		valid_child = []
+		for i in range(len(self.children)):
+			if self.children[i].validate(path+"/"+str(i)+"/"+self.node_type):
+				valid_child.append(self.children[i])
 		v2 = len(valid_child)
 
 		is_valid = v >= self.allowed_children[1] and v == len(self.children) and v2 == v
+		if not is_valid:
+			print(path+"/"+self.node_type)
 		return is_valid
 
 

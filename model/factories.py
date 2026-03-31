@@ -96,14 +96,15 @@ def node_factory(tag, marks):
 
 			if tag_matches(tag, 'a.confluence-embedded-file'):
 				title = tag["aria-label"] if "aria-label" in tag.attrs and tag["aria-label"] != '' else None
-				confluenceId = tag['data-linked-resource-default-alias']
+				suffix = tag["data-linked-resource-default-alias"].split('.')[-1] if '.' in tag["data-linked-resource-default-alias"] else ""
+				confluenceId = tag['data-linked-resource-id'] + '.' + suffix
 				confluenceDoc = tag["data-linked-resource-container-id"]
 				return AttachmentNode(title, confluenceId, confluenceDoc)
 
 			# This only handles text links properly, and doesn't apply inner formatting
 			# That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
 			return TextNode(tag.get_text(strip=True), marks + [
-				Mark('link', {"href": tag['href'].strip()})
+				Mark('link', {"href": tag['href'].strip().replace(' ', '%20')})
 			])
 
 		case "body":
@@ -165,6 +166,11 @@ def node_factory(tag, marks):
 		case "p":
 			if len(children) == 1 and children[0].node_type == "br":
 				return None
+			if len(children) == 1 and children[0].node_type == "attachment":
+				return children[0]
+
+			if "attachment" in [c.node_type for c in children]:
+				print(children)
 			return TagNode('paragraph', 'block', ('inline', 0), children)
 
 		case "pre":
@@ -185,6 +191,9 @@ def node_factory(tag, marks):
 		case "span":
 			if tag_matches(tag, 'span.aui-avatar') or tag_matches(tag, 'span.aui-icon'):
 				return None
+
+			if tag_matches(tag, 'span.confluence-embedded-file-wrapper'):
+				return children[0]
 
 			# Most spans are just wrapping.
 			return sane_children(children)

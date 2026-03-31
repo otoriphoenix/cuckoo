@@ -66,7 +66,7 @@ class ConfluenceSpace:
 				document_id = None
 			if document_id:
 				self.documents[document_name] = {"outlineID": document_id, "outlineContent": document_content}
-			return #for debugging purposes, stop after 1 document. Disabled in prod.
+			#return #for debugging purposes, stop after 1 document. Disabled in prod.
 
 			nested = page.find_all("ul", recursive = False)
 			for n in nested:
