@@ -5,7 +5,7 @@ To enable teams to migrate from Confluence with a self-hosted Outline instance, 
 
 **Tested with Confluence 9.2.4 and Outline 0.87.3 on a Linux host.**
 
-No AI was used in the creation of this program.
+Almost no AI was used in the creation of this program. There is one place where Le Chat Mistral helped out, but its output was carefully reviewed and tested by a human.
 
 ## How to use Cuckoo
 1. Download Cuckoo from the Releases

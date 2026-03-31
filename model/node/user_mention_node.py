@@ -22,6 +22,7 @@ class UserMentionNode(Node):
 		self.group = 'inline'
 		self.outlineUid = None
 		self.confluenceUid = confluenceUid
+		self.content = content
 
 	def toJson(self):
 		# TODO adapt based on outlineUid - if outlineUid is set, return a mention
@@ -31,10 +32,9 @@ class UserMentionNode(Node):
 				"attrs": {"type": "user", "modelId": self.outlineUid, "label": self.content}
 			}
 
-		#TODO return link to confluence if uid not set
 		baseJson = {
 			"type": "text",
-			"text": self.confluenceUid,
+			"text": self.content,
 			"marks": [{"type": "link", "attrs": {"href": f"{CONFLUENCE_BASE_URL}/display/~{self.confluenceUid}"}}]
 			}
 		return baseJson

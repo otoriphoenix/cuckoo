@@ -151,12 +151,8 @@ def node_factory(tag, marks):
 			return None
 
 		case "li":
-			#children = merged_textleaves(children)
-			#children = wrapped_nodes(children)
 			if len(children) == 0:
 				children = [produce_paragraph()]
-			#if len(children) == 1 and not type(children[0].node_type) is TagNode:
-			#	children = [produce_paragraph(children)]
 			if tag_matches(tag, 'li[data-inline-task-id]'):
 				checked = "class" in tag.attrs and "checked" in tag['class']
 				return TagNode('checkbox_item', 'checkbox_item', ('block', 1), children, {"checked": checked})
@@ -167,10 +163,6 @@ def node_factory(tag, marks):
 			return TagNode('ordered_list', 'block', ('list_item', 1), children)
 
 		case "p":
-			# filter nested paragraphs bc these suck ass
-			#print([c.node_type for c in children])
-			#children = [c for c in children if c.node_type != "paragraph"]
-			#print([c.node_type for c in children])
 			if len(children) == 1 and children[0].node_type == "br":
 				return None
 			return TagNode('paragraph', 'block', ('inline', 0), children)
@@ -224,45 +216,10 @@ def node_factory(tag, marks):
 			return TagNode('bullet_list', 'block', ('list_item', 1), children)
 
 		case _:
-			return None #TagNode(tag.name, 'invalid', ('none', 0), children)
+			return TagNode(tag.name, 'invalid', ('none', 0), children)
 
 def produce_paragraph(children = []):
 	return TagNode('paragraph', 'block', ('inline', 0), children)
-
-def merged_textleaves(children):
-	if len(children) == 0:
-		return []
-
-	# thanks Mistral
-	children_merged = []
-	current = children[0]
-
-	for child in children[1:]:
-		if child.node_type == "text" and current.node_type == "text":
-			current.content += child.content
-		else:
-			children_merged.append(current)
-			current = child
-	children_merged.append(current)
-	return children_merged
-
-def wrapped_nodes(children):
-	inlined = ["br", "text", "user_mention", "image", "attachment"]
-	children_wrapped = []
-	collector = []
-	for child in children:
-		if child.node_type not in inlined:
-			print(child.node_type, [str(c) for c in child.children])
-			# Clear out collector with wrapped nodes
-			if len(collector) > 0:
-				children_wrapped.append(produce_paragraph(collector))
-				collector = []
-			children_wrapped.append(child)
-		else:
-			collector.append(child)
-
-	return children_wrapped
-
 
 """
 Creates Marks based on the current tag.

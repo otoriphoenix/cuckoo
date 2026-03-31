@@ -71,7 +71,7 @@ class ConfluenceDocument:
 		self.fix_attachment_ids(self.get_content())
 		self.merge_textleaves(self.get_content())
 		self.wrap_nodes(self.get_content())
-		#self.validate()
+		self.validate()
 		self.convert_to_json()
 		if home:
 			self.make_space_description()
@@ -93,7 +93,6 @@ class ConfluenceDocument:
 		attached = soup.find(id="attachments")
 		if attached:
 			attached = attached.parent.parent.extract()
-			#print(attached)
 			attached = attached.find(class_="greybox")
 			attached = attached.find_all("a")
 
@@ -163,7 +162,6 @@ class ConfluenceDocument:
 		argh = ['p p', 'h1 p', 'h2 p', 'h3 p', 'h4 p', 'h5 p', 'h6 p']
 		for a in argh:
 			p_in_aaa = soup.select(a)
-			print(p_in_aaa)
 			for p_in_p in p_in_aaa:
 				p_in_p.unwrap()
 
@@ -234,7 +232,6 @@ class ConfluenceDocument:
 		children_merged.append(current)
 
 		node.children = children_merged
-		print(node.node_type, node.children)
 
 	def wrap_nodes(self, node):
 		inlined = ["br", "text", "user_mention", "image", "attachment"]
@@ -258,7 +255,6 @@ class ConfluenceDocument:
 			if child.node_type in inlined:
 				collector.append(child)
 			else:
-				print(child.node_type, len(child.children))
 				# Clear out collector with wrapped nodes
 				if len(collector) > 0:
 					children_wrapped.append(produce_paragraph(collector))

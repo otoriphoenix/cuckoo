@@ -33,7 +33,6 @@ class TagNode(Node):
 	def validate(self):
 		# All valid children get added to the list
 		valid_group = [str(c) for c in self.children if c.group in self.allowed_children[0].split(' ')]
-		#print(valid_group)
 
 		# Check if the minimum contraint of children is met
 		# and there are no invalid children
@@ -43,10 +42,6 @@ class TagNode(Node):
 		v2 = len(valid_child)
 
 		is_valid = v >= self.allowed_children[1] and v == len(self.children) and v2 == v
-		if not is_valid:
-			print(valid_group)
-		#	print(self)
-		#	print([c.node_type for c in self.children if not c.validate()] + [c.node_type for c in self.children if not c.group in self.allowed_children[0].split(' ')])
 		return is_valid
 
 
