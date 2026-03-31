@@ -1,4 +1,3 @@
-import request_wrapper as call
 from .document import ConfluenceDocument
 from bs4 import BeautifulSoup
 from ..outline_api import *
