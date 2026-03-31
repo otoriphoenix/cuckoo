@@ -35,4 +35,4 @@ class TextNode(Node):
 		return False
 
 	def validate(self, path):
-		return True
+		return len(self.content) > 0

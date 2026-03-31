@@ -89,6 +89,8 @@ def node_factory(tag, marks):
 			'rowspan': rowspan,
 			'alignment': align
 		}
+		if len(children) == 0:
+			children = [produce_paragraph()]
 		return TagNode(tag.name, tag.name, ('block', 0), children, conf)
 
 	# We then need to make sure every case is covered.
