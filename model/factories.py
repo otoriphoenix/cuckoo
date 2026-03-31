@@ -141,7 +141,7 @@ def node_factory(tag, marks):
 
             # This only handles text links properly, and doesn't apply inner formatting
             # That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
-            if tag.get_text(strip=True) == "":
+            if tag.get_text() == "":
                 return None
 
             add_link_mark = (
@@ -160,7 +160,7 @@ def node_factory(tag, marks):
             )
 
             return TextNode(
-                tag.get_text(strip=True),
+                tag.get_text(),
                 marks + add_link_mark,
             )
 
