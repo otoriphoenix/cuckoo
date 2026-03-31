@@ -177,7 +177,9 @@ class ConfluenceDocument:
         # Remove comments section at bottom
         font_tags = soup.find_all("font")
         for font_tag in font_tags:
-            font_tag.find_parent("table").decompose()
+            t = font_tag.find_parent("table")
+            if t:
+                t.decompose()
 
         colgroups = soup.find_all("colgroup")
         for colgroup in colgroups:
