@@ -27,7 +27,7 @@ class ConfluenceDocument:
 
     def __init__(self, title, filename, collection, parent_id):
         self.doc_id = None
-        self.title = title
+        self.title = title if len(title) <= 100 else (title[:97] + "...")
         self.file = (
             filename  # we might need this to fix up links in the collections later
         )
