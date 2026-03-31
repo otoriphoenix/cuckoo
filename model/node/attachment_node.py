@@ -80,11 +80,9 @@ class AttachmentNode(Node):
         return baseJson
 
     def patchData(self, confluenceAids):
-        print(self.confluenceAid, self.confluenceAid in confluenceAids.keys())
         if self.confluenceAid in confluenceAids.keys():
             self.outlineAid = confluenceAids[self.confluenceAid]["id"]
             self.size = confluenceAids[self.confluenceAid]["size"]
-            print(self.toJson())
 
     def setOutlineAid(self, outlineAid):
         self.outlineAid = outlineAid

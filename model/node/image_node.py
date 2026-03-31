@@ -55,7 +55,7 @@ class ImageNode(Node):
 
     def patchAid(self, confluenceAids):
         if self.confluenceAid in confluenceAids.keys():
-            self.outlineIid = confluenceAids[self.confluenceAid]
+            self.outlineIid = confluenceAids[self.confluenceAid]["id"]
 
     def validate(self, path):
         return True

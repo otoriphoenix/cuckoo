@@ -74,6 +74,7 @@ class ConfluenceDocument:
         self.convert_html()
         self.fake_upload()
         self.upload_attachments()
+        print(self.attachments)
         self.fix_attachments(self.get_content())
         self.merge_textleaves(self.get_content())
         self.wrap_nodes(self.get_content())
