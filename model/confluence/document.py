@@ -246,10 +246,11 @@ class ConfluenceDocument:
 			return
 
 		# check if applicable
+		if not type(node) is TagNode:
+			return
+
 		for child in node.children:
 			self.wrap_nodes(child)
-		if len([c for c in node.children if c.node_type in inlined]) == 0:
-			return
 
 		children_wrapped = []
 		collector = []

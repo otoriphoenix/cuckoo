@@ -171,8 +171,8 @@ def node_factory(tag, marks):
 			#print([c.node_type for c in children])
 			#children = [c for c in children if c.node_type != "paragraph"]
 			#print([c.node_type for c in children])
-			#if len(children) == 1 and children[0].node_type == "paragraph":
-			#	return children[0]
+			if len(children) == 1 and children[0].node_type == "br":
+				return None
 			return TagNode('paragraph', 'block', ('inline', 0), children)
 
 		case "pre":

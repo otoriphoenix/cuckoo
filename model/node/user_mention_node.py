@@ -1,5 +1,12 @@
 from .node import Node
 
+
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+CONFLUENCE_BASE_URL = os.getenv('CONFLUENCE_SRC', 'https://confluence.example.com')
+
 """
 Node for a user mention.
 Known issue: any marks applied to the text are lost.
@@ -27,7 +34,8 @@ class UserMentionNode(Node):
 		#TODO return link to confluence if uid not set
 		baseJson = {
 			"type": "text",
-			"marks": [{"type": "link", "href": self.confluenceUid}]
+			"text": self.confluenceUid,
+			"marks": [{"type": "link", "attrs": {"href": f"{CONFLUENCE_BASE_URL}/display/~{self.confluenceUid}"}}]
 			}
 		return baseJson
 
