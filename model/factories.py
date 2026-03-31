@@ -148,27 +148,20 @@ def node_factory(tag, marks):
                 [
                     Mark(
                         "link",
-                        {"href": (tag["href"].strip().replace(" ", "%20"))},
+                        {
+                            "href": (
+                                tag["href"].replace(" ", "%20") if tag["href"] else ""
+                            )
+                        },
                     )
                 ]
                 if "href" in tag.attrs
                 else []
             )
+
             return TextNode(
                 tag.get_text(strip=True),
-                marks
-                + [
-                    Mark(
-                        "link",
-                        {
-                            "href": (
-                                tag["href"].strip().replace(" ", "%20")
-                                if "href" in tag.attrs
-                                else None
-                            )
-                        },
-                    )
-                ],
+                marks + add_link_mark,
             )
 
         case "body":
