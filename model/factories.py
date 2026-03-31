@@ -1,3 +1,4 @@
+from .node.code_fence_node import CodeFenceNode
 from .node.node import Node
 from .node.br_node import BrNode
 from .mark import Mark
@@ -101,6 +102,9 @@ def node_factory(tag, marks):
     # For anything else, we return None as to not consider it.
     match tag.name:
         case "a":
+            if len(children) == 0:
+                return None
+
             if tag_matches(tag, "a.confluence-userlink"):
                 return UserMentionNode(tag.get_text(), tag["data-username"])
 
@@ -127,6 +131,18 @@ def node_factory(tag, marks):
             # That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
             if tag.get_text(strip=True) == "":
                 return None
+
+            add_link_mark = [
+                    Mark(
+                        "link",
+                        {
+                            "href": (
+                                tag["href"].strip().replace(" ", "%20")
+
+                            )
+                        },
+                    )
+                ] if "href" in tag.attrs else []
             return TextNode(
                 tag.get_text(strip=True),
                 marks
@@ -264,9 +280,10 @@ def node_factory(tag, marks):
             if lang == "shell":
                 lang = "bash"
 
-            return TagNode(
-                "code_fence", "block", ("inline", 0), children, {"language": lang}
-            )
+            if not tag.get_text():
+                return None
+            children = [TextNode(tag.get_text(), [])]
+            return CodeFenceNode(children, lang)
 
         case "span":
             if tag_matches(tag, "span.aui-avatar") or tag_matches(tag, "span.aui-icon"):
@@ -284,6 +301,9 @@ def node_factory(tag, marks):
                 return None
 
             return TagNode("table", "block", ("tr", 1), children)
+
+        case "thead":
+            return sane_children(children)
 
         case "tbody":
             return sane_children(children)

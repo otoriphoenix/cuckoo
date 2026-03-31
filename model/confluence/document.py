@@ -173,6 +173,15 @@ class ConfluenceDocument:
             for p_in_p in p_in_aaa:
                 p_in_p.unwrap()
 
+        # Remove comments section at bottom
+        font_tags = soup.find_all("font")
+        for font_tag in font_tags:
+            font_tag.find_parent("table").decompose()
+
+        colgroups = soup.find_all('colgroup')
+        for colgroup in colgroups:
+            colgroup.decompose()
+
     # The heavy loading is done in a different file as to make this class easier to read
     def convert_html(self):
         html_body = self.get_content("html").find("body")

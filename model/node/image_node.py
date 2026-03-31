@@ -39,17 +39,18 @@ class ImageNode(Node):
             }
 
         else:
+            alt = self.alt if self.alt and len(self.alt) > 0 else "(Image on Confluence)"
             baseJson = {
                 "type": "text",
                 "marks": [
                     {
                         "type": "link",
                         "attrs": {
-                            "href": f"{CONFLUENCE_BASE_URL}{self.confluenceLink}"
+                            "href": f"{CONFLUENCE_BASE_URL}/{self.confluenceLink}"
                         },
                     }
                 ],
-                "text": self.alt,
+                "text": alt,
             }
         return baseJson
 
