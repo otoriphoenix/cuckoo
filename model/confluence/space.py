@@ -1,8 +1,9 @@
 import request_wrapper as call
 from .document import ConfluenceDocument
 from bs4 import BeautifulSoup
+from ..outline_api import *
+
 import os
-import time
 import zipfile
 import jsonpatch
 import json
@@ -42,22 +43,10 @@ class ConfluenceSpace:
 
         page_tree = space_index.find("ul")
         pages = page_tree.find_all("li", recursive=False)
-        self.create_collection()
+        self.id = create_collection(self.name)
         self.process_home = home_is_description
         self.process_pages(pages)
         self.export_import()
-
-    def create_collection(self):
-        answer = call.json_endpoint(
-            "collections.create",
-            {
-                "name": self.name,
-                "description": f"Imported with Cuckoo Importer v1.0.0\n\n© Sascha Bacher",
-                "permission": None,
-                "sharing": False,
-            },
-        )
-        self.id = answer["id"]
 
     # Iterates recursively over the document tree, creating pages as it progresses
     def process_pages(self, pages, parent=None):
@@ -91,17 +80,11 @@ class ConfluenceSpace:
     # Done at collection level since one collection is put into one json file anyway
     def export_import(self):
         auth = f"Bearer {os.getenv('API_TOKEN')}"
-        answer = call.json_endpoint(
-            "collections.export",
-            {"format": "json", "id": self.id, "includeAttachments": True},
-        )
-        file_op = answer["fileOperation"]
-        file_id = file_op["id"]
-        while not file_op["state"] == "complete":
-            file_op = call.json_endpoint("fileOperations.info", {"id": file_id})
-            time.sleep(2)
+        file_id, state = export_collection(self.id)
+        while not state == "complete":
+            state = get_file_operation_state(file_id)
 
-        export_file = call.fetch_file(file_id)
+        export_file = fetch_file(file_id)
         with open(
             f'{os.getenv("OUTLINE_TMP")}/{self.shortname}-raw.zip', "wb"
         ) as target_file:
@@ -117,7 +100,7 @@ class ConfluenceSpace:
         self.json = json.loads(self.json)
 
         # We have the file, so we delete it from the server as to not pollute it
-        answer = call.json_endpoint("fileOperations.delete", {"id": file_id})
+        delete_file(file_id)
 
         # Then we delete the collection
         # answer = call.json_endpoint("collections.delete", {"id": self.id})
@@ -130,18 +113,11 @@ class ConfluenceSpace:
         shutil.make_archive(path, "zip", path)
 
         # ...and reimport the collection
-        import_file_id, _ = call.attach(
-            f"{os.getenv('OUTLINE_TMP')}/{self.shortname}.zip", None, "workspaceImport"
+        import_file_id, _ = attach_workspace_import(
+            f"{os.getenv('OUTLINE_TMP')}/{self.shortname}.zip"
         )
-        answer = call.json_endpoint(
-            "collections.import",
-            {
-                "attachmentId": import_file_id,
-                "format": "json",
-                "permission": None,
-                "sharing": False,
-            },
-        )
+
+        import_collection(import_file_id)
 
         # answer = call.json_endpoint("collections.delete", {"id": self.id})
 
