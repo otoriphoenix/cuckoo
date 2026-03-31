@@ -139,9 +139,9 @@ class ConfluenceDocument:
 		# - the unicode hex is given in an HTML attribute
 		# - it's a simple conversion
 		# ...or at least it would be IF THERE WASN'T A SECOND TYPE OF EMOTICON
-		emojis = soup.find_all(class_="emoticon")
+		emojis = soup.select(".emoticon")
 		for emoji in emojis:
-			if "data-emoji-id" in emoji:
+			if "data-emoji-id" in emoji.attrs:
 				emoji.replace_with(chr(int(emoji["data-emoji-id"], 16)))
 			else: # It's a bloody different type of emoticon.
 				emoji.replace_with(emoji["alt"])
@@ -156,8 +156,10 @@ class ConfluenceDocument:
 
 		attached = soup.find_all('span', class_='confluence-embedded-file-wrapper')
 		for attach in attached:
-			if attach.parent.name in ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-				attach.parent.unwrap()
+			for p in ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+				par = attach.find_parent(p)
+				if par:
+					par.unwrap()
 
 		argh = ['p p', 'h1 p', 'h2 p', 'h3 p', 'h4 p', 'h5 p', 'h6 p']
 		for a in argh:
@@ -167,7 +169,10 @@ class ConfluenceDocument:
 
 	# The heavy loading is done in a different file as to make this class easier to read
 	def convert_html(self):
-		self.set_content(node_factory(self.get_content("html").find("body"), []), "node")
+		html_body = self.get_content("html").find("body")
+		if not type(html_body) is Tag:
+			print(html_body)
+		self.set_content(node_factory(html_body, []), "node")
 
 	def upload_attachments(self):
 		for attached_file in self.attachments.keys():

@@ -44,10 +44,10 @@ class ImageNode(Node):
 					{
 					"type": "link",
 					"attrs": {
-						"href": f"{CONFLUENCE_BASE_URL}{confluenceLink}"
+						"href": f"{CONFLUENCE_BASE_URL}{self.confluenceLink}"
 					}}
 				],
-				"text": self.title
+				"text": self.alt
 			}
 		return baseJson
 

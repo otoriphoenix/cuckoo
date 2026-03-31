@@ -7,7 +7,7 @@ from .node.user_mention_node import UserMentionNode
 from .node.attachment_node import AttachmentNode
 from .node.image_node import ImageNode
 
-from bs4 import NavigableString
+from bs4 import NavigableString, Stylesheet
 import re
 
 """
@@ -34,8 +34,12 @@ def node_factory(tag, marks):
 	if not tag:
 		return None
 
+	# whyever that would happen
+	if type(tag) is Stylesheet:
+		return None
+
 	if type(tag) is NavigableString:
-		if len(tag.string) == 0:
+		if len(tag.string) == 0 or tag.string == "":
 			return None
 		return TextNode(tag.string, marks)
 
@@ -86,9 +90,7 @@ def node_factory(tag, marks):
 		return TagNode(tag.name, tag.name, ('block', 0), children, conf)
 
 	# We then need to make sure every case is covered.
-	# For anything that doesn't require special handling, we simply return a
-	# TagNode with the tag name as its type, no attributes and no children.
-	# This will fail validation, so we must avoid this case like the plague.
+	# For anything else, we return None as to not consider it.
 	match tag.name:
 		case "a":
 			if tag_matches(tag, 'a.confluence-userlink'):
@@ -103,8 +105,10 @@ def node_factory(tag, marks):
 
 			# This only handles text links properly, and doesn't apply inner formatting
 			# That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
+			if tag.get_text(strip=True) == "":
+				return None
 			return TextNode(tag.get_text(strip=True), marks + [
-				Mark('link', {"href": tag['href'].strip().replace(' ', '%20')})
+				Mark('link', {"href": tag['href'].strip().replace(' ', '%20') if "href" in tag.attrs else None})
 			])
 
 		case "body":
@@ -140,7 +144,7 @@ def node_factory(tag, marks):
 			return sane_children(children)
 
 		case "hr":
-			return TagNode('hr', 'block')
+			return TagNode('hr', 'block', ('none', 0), [])
 
 		case "img":
 			alt = str(tag['alt']) if 'alt' in tag.attrs and tag['alt'] != '' else None
@@ -148,15 +152,14 @@ def node_factory(tag, marks):
 			height = int(tag['height']) if 'height' in tag.attrs else 250
 			return ImageNode(tag['src'], width, height, alt)
 
-		case "input":
-			return None
-
 		case "li":
 			if len(children) == 0:
 				children = [produce_paragraph()]
 			if tag_matches(tag, 'li[data-inline-task-id]'):
 				checked = "class" in tag.attrs and "checked" in tag['class']
-				return TagNode('checkbox_item', 'checkbox_item', ('block', 1), children, {"checked": checked})
+				# Sometimes, Confluence gets confused
+				if tag["data-inline-task-id"]:
+					return TagNode('checkbox_item', 'checkbox_item', ('block', 1), children, {"checked": checked})
 
 			return TagNode('list_item', 'list_item', ('block', 1), children)
 
@@ -174,7 +177,7 @@ def node_factory(tag, marks):
 			return TagNode('paragraph', 'block', ('inline', 0), children)
 
 		case "pre":
-			languages = [a for a in tag.attrs["class"] if a.startswith('language-')]
+			languages = [a for a in tag.attrs["class"] if a.startswith('language-')] if "class" in tag.attrs else []
 			# Should never be more than 1. If it somehow is, we don't set it
 			lang = languages[0].replace('language-', '') if len(languages) == 1 else None
 
@@ -186,7 +189,7 @@ def node_factory(tag, marks):
 			if lang == 'shell':
 				lang = 'bash'
 
-			return TagNode('code_fence', 'block', ('text', 0), children, {'language': lang})
+			return TagNode('code_fence', 'block', ('inline', 0), children, {'language': lang})
 
 		case "span":
 			if tag_matches(tag, 'span.aui-avatar') or tag_matches(tag, 'span.aui-icon'):
@@ -219,13 +222,14 @@ def node_factory(tag, marks):
 			if len(children) == 0:
 				return None
 
-			if tag_matches(tag, 'ul[data-inline-tasks-content-id]'):
+			if tag_matches(tag, 'ul[data-inline-tasks-content-id]') or tag_matches(tag, 'ul.inline-task-list'):
 				return TagNode('checkbox_list', 'block', ('checkbox_item', 1), children)
 
 			return TagNode('bullet_list', 'block', ('list_item', 1), children)
 
+		# catches: input, fieldset
 		case _:
-			return TagNode(tag.name, 'invalid', ('none', 0), children)
+			return None #TagNode(tag.name, 'invalid', ('none', 0), children)
 
 def produce_paragraph(children = []):
 	return TagNode('paragraph', 'block', ('inline', 0), children)
