@@ -86,7 +86,7 @@ def node_factory(tag, marks):
         # on the same table cell
         if "style" in tag.attrs:
             align = re.match(r"text-align: ([a-zA-Z]+);", tag["style"])
-            if align.group(1):
+            if align and align.group(1):
                 align = align.group(1)
             else:
                 align = None
@@ -256,9 +256,6 @@ def node_factory(tag, marks):
                 return None
             if len(children) == 1 and children[0].node_type == "attachment":
                 return children[0]
-
-            if "attachment" in [c.node_type for c in children]:
-                print(children)
             return TagNode("paragraph", "block", ("inline", 0), children)
 
         case "pre":
