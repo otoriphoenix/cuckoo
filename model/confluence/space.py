@@ -77,7 +77,6 @@ class ConfluenceSpace:
     # Exports and deletes the collection from Outline, applies magic and reimports the collection into Outline
     # Done at collection level since one collection is put into one json file anyway
     def export_import(self):
-        auth = f"Bearer {os.getenv('API_TOKEN')}"
         file_id, state = export_collection(self.id)
         while not state == "complete":
             state = get_file_operation_state(file_id)
@@ -100,9 +99,6 @@ class ConfluenceSpace:
         # We have the file, so we delete it from the server as to not pollute it
         delete_file(file_id)
 
-        # Then we delete the collection
-        # answer = call.json_endpoint("collections.delete", {"id": self.id})
-
         # We work our magic...
         self.praise_the_whale()
 
@@ -117,6 +113,7 @@ class ConfluenceSpace:
 
         import_collection(import_file_id)
 
+        # Then we delete the old collection
         delete_collection(self.id)
 
     def praise_the_whale(self):

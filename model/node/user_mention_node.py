@@ -27,7 +27,6 @@ class UserMentionNode(Node):
         self.content = content
 
     def toJson(self):
-        # TODO adapt based on outlineUid - if outlineUid is set, return a mention
         if self.outlineUid:
             return {
                 "type": "mention",

@@ -13,7 +13,7 @@ Almost no AI was used in the creation of this program. There is one place where 
 2. Create a file named `.env`. This is best done by copying `sample.env` and adjusting the values to your needs
 3. Export desired spaces from your Confluence instance as HTML
 4. If you want to have Outline user mentions instead of links to Confluence profiles, create a JSON file mapping the IDs.<br>For the exact format see `users.sample.json`.<br>Furthermore, set `USER_MAPPING` to the path of your mapping.
-5. Run `python import.py <export_zip_1> <export_zip_2> ... <export_zip_n>`<br>Cuckoo will handle all of the files.
+5. Run `python main.py <export_zip_1> <export_zip_2> ... <export_zip_n>`<br>Cuckoo will handle all of the files.
 6. Be mindful of API rate limits: If the script runs into the rate limit, it aborts. This is subject to change.
 
 ## Known Issues

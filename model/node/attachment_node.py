@@ -18,41 +18,18 @@ class AttachmentNode(Node):
     title: str
     outlineAid: str
     confluenceAid: str
-    confluenceDoc: str  # TODO do you need this?
-    outlineDoc: str  # TODO user uid? maybe this is unnecessary -> this could work on document/space level
+    confluenceDoc: str
     size: int
-
-    """
-	# Down here so I can remove contents, since an attachment node doesn't have them
-	if tag_type == 'attachment':
-		# Link put together manually due to how attachment links look
-		# (under the assumption that Confluence always generates them like this)
-		# Third part of the first split is the filename, with possible attributes attached
-		# First part of the second split is the full filename
-		# Last part of the third split yields the suffix
-		suffix = tag['href'].split('/')[4].split('?')[0].split('.')[-1]
-		attrs["href"] = 'attachments/' + tag["data-linked-resource-container-id"] + '/' + tag['data-linked-resource-id'] + '.' + suffix
-		attrs["title"] = tag["aria-label"] if "aria-label" in tag.attrs and tag["aria-label"] != '' else None
-		attrs["id"] = None
-		contents = []
-		"""
 
     def __init__(self, title, confluenceAid, confluenceDoc):
         self.title = title
         self.node_type = "attachment"
         self.group = "block"
         self.outlineAid = None
-        self.outlineDoc = None
         self.confluenceAid = confluenceAid
         self.confluenceDoc = confluenceDoc
 
     def toJson(self):
-        # TODO adapt based on outlineAid - if outlineAid is set, return an attachment
-        # baseJson = {
-        # 	"type": self.node_type,
-        # 	"attrs": self.attrs,
-        # 	"children": self.children,
-        # 	}
         if self.outlineAid:
             baseJson = {
                 "type": "attachment",
