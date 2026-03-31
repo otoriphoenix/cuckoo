@@ -5,10 +5,10 @@ from ..node.node import Node
 from ..node.tag_node import TagNode
 from ..factories import *
 
-import request_wrapper as call
 import os
-import time
 import json
+
+from ..outline_api import *
 
 
 # Class to help import a Confluence document into Outline
@@ -74,6 +74,7 @@ class ConfluenceDocument:
         self.convert_html()
         self.fake_upload()
         self.upload_attachments()
+        print(self.attachments)
         self.fix_attachments(self.get_content())
         self.merge_textleaves(self.get_content())
         self.wrap_nodes(self.get_content())
@@ -148,7 +149,10 @@ class ConfluenceDocument:
         emojis = soup.select(".emoticon")
         for emoji in emojis:
             if "data-emoji-id" in emoji.attrs:
-                emoji.replace_with(chr(int(emoji["data-emoji-id"], 16)))
+                try:
+                    emoji.replace_with(chr(int(emoji["data-emoji-id"], 16)))
+                except:
+                    emoji.replace_with(emoji["alt"])
             else:  # It's a bloody different type of emoticon.
                 emoji.replace_with(emoji["alt"])
 
@@ -173,6 +177,17 @@ class ConfluenceDocument:
             for p_in_p in p_in_aaa:
                 p_in_p.unwrap()
 
+        # Remove comments section at bottom
+        font_tags = soup.find_all("font")
+        for font_tag in font_tags:
+            t = font_tag.find_parent("table")
+            if t:
+                t.decompose()
+
+        colgroups = soup.find_all("colgroup")
+        for colgroup in colgroups:
+            colgroup.decompose()
+
     # The heavy loading is done in a different file as to make this class easier to read
     def convert_html(self):
         html_body = self.get_content("html").find("body")
@@ -185,9 +200,7 @@ class ConfluenceDocument:
             filepath = f"{os.getenv('CONFLUENCE_TMP')}/{self.collection.shortname}/attachments/{self.confluence_slug}/{attached_file}"
             if not os.path.exists(filepath):
                 continue
-            file_id, file_size = call.attach(
-                filepath, self.doc_id, "documentAttachment"
-            )
+            file_id, file_size = attach_file(filepath, self.doc_id)
             self.attachments[attached_file] = {"id": file_id, "size": file_size}
 
     def fix_attachments(self, root_node):
@@ -209,16 +222,15 @@ class ConfluenceDocument:
     # Actually doing that needs to be done at collection level to ensure proper formatting
     # To let the collection know about this, we just remove the document and its ID
     def make_space_description(self):
-        call.json_endpoint("documents.delete", {"id": self.doc_id})
+        delete_document(self.doc_id)
         self.doc_id = None
 
     # Creates a document with the given title.
     # This gets a mangled version in place as a base for if the import fails.
     def fake_upload(self):
-        answer = call.import_html(
-            self.title, str(self.get_content("html")), self.collection.id, self.parent
+        self.doc_id = import_document(
+            self.title, str(self.get_content("html")), self.parent, self.collection.id
         )
-        self.doc_id = answer["id"]
 
     def convert_to_json(self):
         self.set_content(self.get_content("node").toJson(), "json")

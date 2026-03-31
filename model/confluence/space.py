@@ -1,8 +1,8 @@
-import request_wrapper as call
 from .document import ConfluenceDocument
 from bs4 import BeautifulSoup
+from ..outline_api import *
+
 import os
-import time
 import zipfile
 import jsonpatch
 import json
@@ -42,22 +42,10 @@ class ConfluenceSpace:
 
         page_tree = space_index.find("ul")
         pages = page_tree.find_all("li", recursive=False)
-        self.create_collection()
+        self.id = create_collection(self.name)
         self.process_home = home_is_description
         self.process_pages(pages)
         self.export_import()
-
-    def create_collection(self):
-        answer = call.json_endpoint(
-            "collections.create",
-            {
-                "name": self.name,
-                "description": f"Imported with Cuckoo Importer v1.0.0\n\n© Sascha Bacher",
-                "permission": None,
-                "sharing": False,
-            },
-        )
-        self.id = answer["id"]
 
     # Iterates recursively over the document tree, creating pages as it progresses
     def process_pages(self, pages, parent=None):
@@ -68,18 +56,14 @@ class ConfluenceSpace:
                 f'Processing "{document_title}", parent: {parent}, internal name: {document_name} ...'
             )
 
-            document_id, document_content = ConfluenceDocument(
-                document_title, document_name, self, parent
-            ).import_doc(self.process_home)
+            document = ConfluenceDocument(document_title, document_name, self, parent)
+            document_id, document_content = document.import_doc(self.process_home)
             if self.process_home:
                 self.process_home = False
                 self.description = document_content
                 document_id = None
             if document_id:
-                self.documents[document_name] = {
-                    "outlineID": document_id,
-                    "outlineContent": document_content,
-                }
+                self.documents[document_name] = document
             # return #for debugging purposes, stop after 1 document. Disabled in prod.
 
             nested = page.find_all("ul", recursive=False)
@@ -90,18 +74,11 @@ class ConfluenceSpace:
     # Exports and deletes the collection from Outline, applies magic and reimports the collection into Outline
     # Done at collection level since one collection is put into one json file anyway
     def export_import(self):
-        auth = f"Bearer {os.getenv('API_TOKEN')}"
-        answer = call.json_endpoint(
-            "collections.export",
-            {"format": "json", "id": self.id, "includeAttachments": True},
-        )
-        file_op = answer["fileOperation"]
-        file_id = file_op["id"]
-        while not file_op["state"] == "complete":
-            file_op = call.json_endpoint("fileOperations.info", {"id": file_id})
-            time.sleep(2)
+        file_id, state = export_collection(self.id)
+        while not state == "complete":
+            state = get_file_operation_state(file_id)
 
-        export_file = call.fetch_file(file_id)
+        export_file = fetch_file(file_id)
         with open(
             f'{os.getenv("OUTLINE_TMP")}/{self.shortname}-raw.zip', "wb"
         ) as target_file:
@@ -139,17 +116,8 @@ class ConfluenceSpace:
             shutil.make_archive(path_shorty, "zip", path)
 
             # ...and reimport the collection
-            import_file_id, _ = call.attach(
-                f"{os.getenv('OUTLINE_TMP')}/{shorty}.zip", None, "workspaceImport"
-            )
-            answer = call.json_endpoint(
-                "collections.import",
-                {
-                    "attachmentId": import_file_id,
-                    "format": "json",
-                    "permission": None,
-                    "sharing": False,
-                },
+            import_file_id, _ = attach_workspace_import(
+                f"{os.getenv('OUTLINE_TMP')}/{shorty}.zip"
             )
 
             print(f'Imported "{doc_name}"')
@@ -173,7 +141,7 @@ class ConfluenceSpace:
 
     def praise_the_whale(self):
         doc_id_map = {
-            key[:-5].split("_")[-1]: self.documents[key]["outlineID"]
+            key[:-5].split("_")[-1]: self.documents[key].doc_id
             for key in self.documents
         }
         for doc_name, document in self.documents.items():
@@ -182,8 +150,19 @@ class ConfluenceSpace:
                 [
                     {
                         "op": "replace",
-                        "path": f"/documents/{document['outlineID']}/data",
-                        "value": document["outlineContent"],
+                        "path": f"/documents/{document.doc_id}/data",
+                        "value": document.get_content("json"),
+                    }
+                ],
+                in_place=True,
+            )
+            jsonpatch.apply_patch(
+                self.json,
+                [
+                    {
+                        "op": "replace",
+                        "path": f"/documents/{document.doc_id}/title",
+                        "value": document.title,
                     }
                 ],
                 in_place=True,

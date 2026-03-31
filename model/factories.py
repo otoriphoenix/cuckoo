@@ -1,3 +1,4 @@
+from .node.code_fence_node import CodeFenceNode
 from .node.node import Node
 from .node.br_node import BrNode
 from .mark import Mark
@@ -6,6 +7,8 @@ from .node.text_node import TextNode
 from .node.user_mention_node import UserMentionNode
 from .node.attachment_node import AttachmentNode
 from .node.image_node import ImageNode
+
+from typing import Iterable
 
 from bs4 import NavigableString, Stylesheet
 import re
@@ -21,6 +24,16 @@ def tag_matches(tag, query):
 
 def sane_children(children, correct_types=True):
     children = [child for child in children if child is not None]
+    c = []
+    for child in children:
+        if isinstance(child, Iterable):
+            for gc in child:
+                c.append(gc)
+        else:
+            c.append(child)
+
+    children = c
+
     if not correct_types:
         return children
     if len(children) == 1:
@@ -85,7 +98,7 @@ def node_factory(tag, marks):
         # on the same table cell
         if "style" in tag.attrs:
             align = re.match(r"text-align: ([a-zA-Z]+);", tag["style"])
-            if align.group(1):
+            if align and align.group(1):
                 align = align.group(1)
             else:
                 align = None
@@ -101,6 +114,9 @@ def node_factory(tag, marks):
     # For anything else, we return None as to not consider it.
     match tag.name:
         case "a":
+            if len(children) == 0:
+                return None
+
             if tag_matches(tag, "a.confluence-userlink"):
                 return UserMentionNode(tag.get_text(), tag["data-username"])
 
@@ -125,23 +141,27 @@ def node_factory(tag, marks):
 
             # This only handles text links properly, and doesn't apply inner formatting
             # That is intentional - Outline can't handle images as link "text", and changing the appearance of a link isn't that important
-            if tag.get_text(strip=True) == "":
+            if tag.get_text() == "":
                 return None
-            return TextNode(
-                tag.get_text(strip=True),
-                marks
-                + [
+
+            add_link_mark = (
+                [
                     Mark(
                         "link",
                         {
                             "href": (
-                                tag["href"].strip().replace(" ", "%20")
-                                if "href" in tag.attrs
-                                else None
+                                tag["href"].replace(" ", "%20") if tag["href"] else ""
                             )
                         },
                     )
-                ],
+                ]
+                if "href" in tag.attrs
+                else []
+            )
+
+            return TextNode(
+                tag.get_text(),
+                marks + add_link_mark,
             )
 
         case "body":
@@ -240,9 +260,6 @@ def node_factory(tag, marks):
                 return None
             if len(children) == 1 and children[0].node_type == "attachment":
                 return children[0]
-
-            if "attachment" in [c.node_type for c in children]:
-                print(children)
             return TagNode("paragraph", "block", ("inline", 0), children)
 
         case "pre":
@@ -264,9 +281,10 @@ def node_factory(tag, marks):
             if lang == "shell":
                 lang = "bash"
 
-            return TagNode(
-                "code_fence", "block", ("inline", 0), children, {"language": lang}
-            )
+            if not tag.get_text():
+                return None
+            children = [TextNode(tag.get_text(), [])]
+            return CodeFenceNode(children, lang)
 
         case "span":
             if tag_matches(tag, "span.aui-avatar") or tag_matches(tag, "span.aui-icon"):
@@ -284,6 +302,9 @@ def node_factory(tag, marks):
                 return None
 
             return TagNode("table", "block", ("tr", 1), children)
+
+        case "thead":
+            return sane_children(children)
 
         case "tbody":
             return sane_children(children)

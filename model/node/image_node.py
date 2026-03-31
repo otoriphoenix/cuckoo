@@ -26,7 +26,6 @@ class ImageNode(Node):
         self.alt = alt
 
     def toJson(self):
-        # TODO adapt based on outlineAid - if outlineAid is set, return an attachment
         if self.outlineIid:
             baseJson = {
                 "type": "image",
@@ -39,23 +38,26 @@ class ImageNode(Node):
             }
 
         else:
+            alt = (
+                self.alt if self.alt and len(self.alt) > 0 else "(Image on Confluence)"
+            )
             baseJson = {
                 "type": "text",
                 "marks": [
                     {
                         "type": "link",
                         "attrs": {
-                            "href": f"{CONFLUENCE_BASE_URL}{self.confluenceLink}"
+                            "href": f"{CONFLUENCE_BASE_URL}/{self.confluenceLink}"
                         },
                     }
                 ],
-                "text": self.alt,
+                "text": alt,
             }
         return baseJson
 
     def patchAid(self, confluenceAids):
         if self.confluenceAid in confluenceAids.keys():
-            self.outlineIid = confluenceAids[self.confluenceAid]
+            self.outlineIid = confluenceAids[self.confluenceAid]["id"]
 
     def validate(self, path):
         return True
