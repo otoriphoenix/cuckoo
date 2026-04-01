@@ -201,7 +201,8 @@ class ConfluenceDocument:
             if not os.path.exists(filepath):
                 continue
             file_id, file_size = attach_file(filepath, self.doc_id)
-            self.attachments[attached_file] = {"id": file_id, "size": file_size}
+            if file_id:
+                self.attachments[attached_file] = {"id": file_id, "size": file_size}
 
     def fix_attachments(self, root_node):
         if root_node.node_type == "attachment":

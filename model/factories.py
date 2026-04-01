@@ -10,7 +10,7 @@ from .node.image_node import ImageNode
 
 from typing import Iterable
 
-from bs4 import NavigableString, Stylesheet
+from bs4 import NavigableString, Stylesheet, Script, Tag
 import re
 
 """
@@ -55,14 +55,14 @@ def node_factory(tag, marks):
     if not tag:
         return None
 
-    # whyever that would happen
-    if type(tag) is Stylesheet:
-        return None
-
     if type(tag) is NavigableString:
         if len(tag.string) == 0 or tag.string == "":
             return None
         return TextNode(tag.string, marks)
+
+    # Some tag names give special objects as children, so they must be caught here
+    if not type(tag) is Tag:
+        return None
 
     # Formatting is applied as marks, so it needs to be handled first
     if tag.name in ["b", "s", "strike", "del", "u", "i", "em", "code", "strong"]:

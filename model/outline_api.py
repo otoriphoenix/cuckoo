@@ -83,8 +83,12 @@ def create_file(filename, filepath, mime, form_data):
         data=form_data,
         files={"file": (filename, open(filepath, "rb"), mime)},
     )
+    if response.status_code == 413:
+        print("File {filename} too big!")
+        return False
     response_json = response.json()
     _is_ok_else_throw("files.create", response_json)
+    return True
 
 
 def get_file_operation_state(file_id: str) -> str:
@@ -170,7 +174,9 @@ def attach_file(filepath, doc_id):
     file_id, attachment_meta = create_attachment(
         filename, filesize, mime, preset="documentAttachment", document_id=doc_id
     )
-    create_file(filename, filepath, mime, attachment_meta)
+    # Don't save ID for failed uploads
+    if not create_file(filename, filepath, mime, attachment_meta):
+        return None, filesize
     return file_id, filesize
 
 
